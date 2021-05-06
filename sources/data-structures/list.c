@@ -1,4 +1,3 @@
-#include "node.h"
 #include "list.h"
 
 int main(int argc, char** argv)
@@ -17,6 +16,9 @@ int main(int argc, char** argv)
     list_remove_by_index(&list, 8);
     list_pop(&list);
     list_pop(&list);
+
+    list_insert(&list, 6, (void*) &(data[0]));
+    list_insert(&list, 7, (void*) &(data[1]));
 
     print_list(list, "sas");
 
@@ -43,8 +45,33 @@ void list_clean(List list)
 
 void list_initialize(List* list)
 {
-    list->head = create_node(NULL);
+    list->head = NULL;
+    list->tail = list->head;
     list->length = 0;
+}
+
+int list_enqueue(List* list, void* data)
+{
+    // Se non ho la coda, non ho mai inserito niente, quindi la lista è vuota
+    if (list->tail == NULL)
+        return EMPTY_LIST;
+    
+    // Creo il nodo
+    Node* to_add = create_node(data);
+    // Lo metto in fondo e aggiorno la coda
+    list->tail->next = to_add;
+    list->tail = list->tail->next;    
+
+    // La lunghezza della lista è aumentata
+    list->length++;
+
+    return 0;
+}
+
+void* list_dequeue(List* list)
+{
+    // Equivale a una pop
+    return list_pop(list);
 }
 
 void* list_remove_by_index(List* list, unsigned int index)
@@ -55,7 +82,7 @@ void* list_remove_by_index(List* list, unsigned int index)
     Node* prev = NULL;
 
     // Ritorno null se tento di cancellare un elemento oltre i limiti
-    if (index > list->length)
+    if (index >= list->length)
         return NULL;
     // Se l'indice è 0, riciclo la pop
     else if (index == 0)
@@ -70,10 +97,16 @@ void* list_remove_by_index(List* list, unsigned int index)
         i++;
     }
 
+    // Se ho rimosso l'ultimo elemento, aggiorno la coda
+    if (index == (list->length -1))
+        list->tail = prev;
+
     // Aggiusto i puntatori
     prev->next = curr->next;
     // Pulisco il nodo
     clean_node(curr);
+    // Decremento la lunghezza
+    list->length--;
 
     return 0;
 }
@@ -94,6 +127,7 @@ int list_insert(List* list, unsigned int index, void* data)
     if (index > list->length)
         return INVALID_INDEX;
 
+    printf("Indice: %d, lunghezza: %d\n", index, list->length);
     // Altrimenti posso inserire
     // Caso limite, inserisco in testa e riciclo la push
     if (index == 0)
@@ -101,6 +135,14 @@ int list_insert(List* list, unsigned int index, void* data)
         clean_node(to_insert);
         return list_push(list, data);
     }
+    // Caso limite, inserisco in coda e riciclo l'enqueue
+    else if (index == list->length)
+    {
+        printf("Metto in coda\n");
+        clean_node(to_insert);
+        return list_enqueue(list, data);
+    }
+
     // Inserimento normale
     while (i < index)
     {
@@ -114,7 +156,7 @@ int list_insert(List* list, unsigned int index, void* data)
 
     // Incremento il numero di elementi nella lista
     list->length++;
-
+    
     return 0;
 }
 
@@ -179,6 +221,9 @@ int list_push(List* list, void* data)
 
     // Incremento il numero di elementi nella lista
     list->length++;
+    // Se ho aggiunto il primo elemento, aggiorno la coda
+    if (list->length == 1)
+        list->tail = list->head;
 
     return 0;
 }
@@ -186,6 +231,9 @@ int list_push(List* list, void* data)
 void print_list(List to_print, const char* name)
 {
     printf("Printing list %s\n", name);
+    printf("Head: %d\n", *(int*)to_print.head->data);
+    printf("Tail: %d\n", *(int*)to_print.tail->data);
+
     Node* curr = to_print.head;
 
     while (curr->next != NULL)
@@ -193,4 +241,6 @@ void print_list(List to_print, const char* name)
         printf("%d\n", *(int*)curr->data);
         curr = curr->next;
     }
+
+    printf("%d\n", *(int*)curr->data);
 }

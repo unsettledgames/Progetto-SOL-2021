@@ -1,5 +1,6 @@
 #include <stdio.h>
 #include <stdlib.h>
+#include "nodes.h"
 
 #define INVALID_INDEX   -1
 #define NO_DATA         -2
@@ -8,6 +9,7 @@
 typedef struct list
 {
     Node* head;
+    Node* tail;
     int length;
 }List;
 
@@ -26,6 +28,10 @@ void* list_pop(List* list);
 int list_push(List* list, void* data);
 
 void print_list(List to_print, const char* name);
+
+int list_enqueue(List* list, void* data);
+
+void* list_dequeue(List* list);
 
 /** TODO:
 
