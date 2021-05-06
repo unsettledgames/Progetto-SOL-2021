@@ -1,3 +1,6 @@
+#if !defined(LIST_H_)
+#define LIST_H_
+
 #include <stdio.h>
 #include <stdlib.h>
 #include "nodes.h"
@@ -35,12 +38,4 @@ int list_enqueue(List* list, void* data, const char* key);
 
 void* list_dequeue(List* list);
 
-/** TODO:
-
-List list_copy(List list);
-
-int enqueue(List* list, void* data);
-
-void* dequeue(List* list);
-
-*/
+#endif

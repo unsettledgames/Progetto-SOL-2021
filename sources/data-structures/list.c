@@ -39,15 +39,13 @@ void list_clean(List list)
     Node* curr = list.head;
     Node* prev = NULL;
 
-    while (curr->next != NULL)
+    while (curr != NULL)
     {
         prev = curr;
         curr = curr->next;
 
         free(prev);
     }
-
-    free(curr);
 }
 
 void list_initialize(List* list)
@@ -136,7 +134,10 @@ void* list_remove_by_key(List* list, const char* key)
         list->tail = prev;
 
     // Aggiusto i puntatori
-    prev->next = curr->next;
+    if (prev == NULL)
+        list->head = list->head->next;
+    else
+        prev->next = curr->next;
     // Pulisco il nodo
     clean_node(curr);
     // Decremento la lunghezza

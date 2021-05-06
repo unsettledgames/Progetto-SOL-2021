@@ -1,3 +1,6 @@
+#if !defined(NODES_H_)
+#define NODES_H_
+
 #include <stdio.h>
 #include <stdlib.h>
 
@@ -13,3 +16,5 @@ typedef struct node
 Node* create_node(void* to_set, const char* key);
 
 void clean_node(Node* to_clean);
+
+#endif

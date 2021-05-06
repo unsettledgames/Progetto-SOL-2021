@@ -2,6 +2,7 @@
 #include <stdlib.h>
 #include "hashmap.h"
 
+/*
 int main(int argc, char** argv)
 {
     Hashmap map;
@@ -24,9 +25,20 @@ int main(int argc, char** argv)
     hashmap_remove(&map, "Notevole chiave");
 
     print_hashmap(map, "Dopo rimozione");
+
+    hashmap_put(&map, (void*) &data[5], "Notevole chiave");
+
+    print_hashmap(map, "Riaggiunto vecchio elemento");
+
+    printf("Valore ottenuto dalla chiave Anche questa è decisamente una chiave (expected 4): %d\n",
+            *(int*)hashmap_get(map, "Anche questa è decisamente una chiave"));
+
+    hashmap_clean(map);
     
     return 0;
 }
+
+*/
 
 void hashmap_initialize(Hashmap* hm, int size)
 {
@@ -37,10 +49,14 @@ void hashmap_initialize(Hashmap* hm, int size)
         list_initialize(&(hm->lists[i]));
 }
 
-void hashmap_clean(Hashmap* hm)
+void hashmap_clean(Hashmap hm)
 {
-    for (int i=0; i<hm->size; i++)
-        list_clean(hm->lists[i]);
+    for (int i=0; i<hm.size; i++)
+    {
+        list_clean(hm.lists[i]);
+    }
+
+    free(hm.lists);
 }
 
 int hashmap_hash(const char* key, int size)
