@@ -13,11 +13,13 @@ typedef struct list
 
 void list_initialize(List* list);
 
-int list_remove(List* list, int index);
+void list_clean(List list);
 
-void* list_get(List list, int index);
+void* list_remove_by_index(List* list, unsigned int index);
 
-int list_insert(List* list, int index, void* data);
+void* list_get(List list, unsigned int index);
+
+int list_insert(List* list, unsigned int index, void* data);
 
 void* list_pop(List* list);
 
@@ -26,6 +28,8 @@ int list_push(List* list, void* data);
 void print_list(List to_print, const char* name);
 
 /** TODO:
+
+List list_copy(List list);
 
 int enqueue(List* list, void* data);
 
