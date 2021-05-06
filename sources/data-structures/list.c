@@ -1,5 +1,7 @@
 #include "list.h"
+#include "string.h"
 
+/*
 int main(int argc, char** argv)
 {
     List list;
@@ -9,16 +11,20 @@ int main(int argc, char** argv)
     for (int i=0; i<8; i++)
     {
         data[i] = i;
-        list_push(&list, (void*) &(data[i]));
+        list_push(&list, (void*) &(data[i]), NULL);
     }
 
-    list_insert(&list, 5, (void*) &(data[4]));
+    list_insert(&list, 5, (void*) &(data[4]), NULL);
     list_remove_by_index(&list, 8);
     list_pop(&list);
     list_pop(&list);
 
-    list_insert(&list, 6, (void*) &(data[0]));
-    list_insert(&list, 7, (void*) &(data[1]));
+    list_insert(&list, 6, (void*) &(data[0]), NULL);
+    list_insert(&list, 7, (void*) &(data[1]), NULL);
+
+    print_list(list, "sas");
+
+    list_remove_by_data(&list, (void*) &data[1]);
 
     print_list(list, "sas");
 
@@ -26,6 +32,7 @@ int main(int argc, char** argv)
 
     return 0;
 }
+*/
 
 void list_clean(List list)
 {
@@ -50,14 +57,14 @@ void list_initialize(List* list)
     list->length = 0;
 }
 
-int list_enqueue(List* list, void* data)
+int list_enqueue(List* list, void* data, const char* key)
 {
     // Se non ho la coda, non ho mai inserito niente, quindi la lista è vuota
     if (list->tail == NULL)
         return EMPTY_LIST;
     
     // Creo il nodo
-    Node* to_add = create_node(data);
+    Node* to_add = create_node(data, key);
     // Lo metto in fondo e aggiorno la coda
     list->tail->next = to_add;
     list->tail = list->tail->next;    
@@ -111,9 +118,36 @@ void* list_remove_by_index(List* list, unsigned int index)
     return 0;
 }
 
-int list_insert(List* list, unsigned int index, void* data)
+void* list_remove_by_key(List* list, const char* key)
 {
-    printf("pointer value: %p\n", list);
+    // Nodi di scorrimento
+    Node* curr = list->head;
+    Node* prev = NULL;
+
+    // Scorro per trovare il nodo che voglio cancellare
+    while (curr != NULL && curr->key != NULL && strcmp(curr->key, key) != 0)
+    {
+        prev = curr;
+        curr = curr->next;
+    }
+
+    // Se ho rimosso l'ultimo elemento, aggiorno la coda
+    if (curr != NULL && curr == (list->tail))
+        list->tail = prev;
+
+    // Aggiusto i puntatori
+    prev->next = curr->next;
+    // Pulisco il nodo
+    clean_node(curr);
+    // Decremento la lunghezza
+    list->length--;
+
+    return 0;
+}
+
+int list_insert(List* list, unsigned int index, void* data, const char* key)
+{
+    //printf("pointer value: %p\n", list);
     // Indice della lista
     int i = 0;
     // Puntatore al nodo precedente
@@ -121,26 +155,25 @@ int list_insert(List* list, unsigned int index, void* data)
     // Puntatore alla testa
     Node* current = list->head;
     // Nodo da inserire
-    Node* to_insert = create_node(data);
+    Node* to_insert = create_node(data, key);
     
     // Se tento di inserire al di fuori della dimensione della lista, lo segnalo
     if (index > list->length)
         return INVALID_INDEX;
 
-    printf("Indice: %d, lunghezza: %d\n", index, list->length);
+    //printf("Indice: %d, lunghezza: %d\n", index, list->length);
     // Altrimenti posso inserire
     // Caso limite, inserisco in testa e riciclo la push
     if (index == 0)
     {
         clean_node(to_insert);
-        return list_push(list, data);
+        return list_push(list, data, key);
     }
     // Caso limite, inserisco in coda e riciclo l'enqueue
     else if (index == list->length)
     {
-        printf("Metto in coda\n");
         clean_node(to_insert);
-        return list_enqueue(list, data);
+        return list_enqueue(list, data, key);
     }
 
     // Inserimento normale
@@ -207,14 +240,14 @@ void* list_pop(List* list)
     return NULL;
 }
 
-int list_push(List* list, void* data)
+int list_push(List* list, void* data, const char* key)
 {
     // Ritorno null se i dati non esistono
     if (data == NULL)
         return NO_DATA;
 
     // Altrimenti creo un nuovo nodo con i dati
-    Node* to_add = create_node(data);
+    Node* to_add = create_node(data, key);
     // E lo imposto come nuova testa della lista
     to_add->next = list->head;
     list->head = to_add;
@@ -228,19 +261,18 @@ int list_push(List* list, void* data)
     return 0;
 }
 
-void print_list(List to_print, const char* name)
+void print_list(List to_print, char* name)
 {
-    printf("Printing list %s\n", name);
-    printf("Head: %d\n", *(int*)to_print.head->data);
-    printf("Tail: %d\n", *(int*)to_print.tail->data);
+    if (to_print.head != NULL)
+        printf("Printing list %s with size %d\n", name, to_print.length);
+    else
+        return;
 
     Node* curr = to_print.head;
 
-    while (curr->next != NULL)
+    while (curr != NULL)
     {
         printf("%d\n", *(int*)curr->data);
         curr = curr->next;
     }
-
-    printf("%d\n", *(int*)curr->data);
 }

@@ -1,5 +1,0 @@
-DOCUMENTATION:
-- Commenti alle funzioni nelle strutture dati
-
-POLISH:
-- Error checking nelle strutture dati

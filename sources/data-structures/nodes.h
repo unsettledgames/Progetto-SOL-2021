@@ -10,8 +10,6 @@ typedef struct node
     void* data;
 }Node;
 
-Node* create_node(void* to_set);
-
-Node* create_hash_node(void* to_set, const char* key);
+Node* create_node(void* to_set, const char* key);
 
 void clean_node(Node* to_clean);

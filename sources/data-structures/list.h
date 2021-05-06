@@ -19,17 +19,19 @@ void list_clean(List list);
 
 void* list_remove_by_index(List* list, unsigned int index);
 
+void* list_remove_by_key(List* list, const char* key);
+
 void* list_get(List list, unsigned int index);
 
-int list_insert(List* list, unsigned int index, void* data);
+int list_insert(List* list, unsigned int index, void* data, const char* key);
 
 void* list_pop(List* list);
 
-int list_push(List* list, void* data);
+int list_push(List* list, void* data, const char* key);
 
-void print_list(List to_print, const char* name);
+void print_list(List to_print, char* name);
 
-int list_enqueue(List* list, void* data);
+int list_enqueue(List* list, void* data, const char* key);
 
 void* list_dequeue(List* list);
 
