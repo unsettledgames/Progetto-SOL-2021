@@ -2,17 +2,25 @@
 
 int main(int argc, char** argv)
 {
+    // Creo l'hashmap che contiene la configurazione del client
     Hashmap config;
+    // E la coda di richieste
     List requests;
 
+    // Inizializzo le strutture dati
     hashmap_initialize(&config, 1021, print_node_string);;
     list_initialize(&requests, print_node_request);
 
+    // Parsing dei dati da input
     parse_options(&config, &requests, argc, argv);
+    // Inizializzazione del client sulla base dei parametri di configurazione
+    initialize_client(config);
 
+/*
     print_hashmap(config, "Config data");
     print_list(requests, "Requests");
-
+*/
+    // Pulisco la memoria delle strutture dati
     hashmap_clean(config);
     list_clean(requests);
     
@@ -20,7 +28,7 @@ int main(int argc, char** argv)
 }
 
 
-void parse_options(Hashmap* config, List* requests, int n_args, char** args)
+int parse_options(Hashmap* config, List* requests, int n_args, char** args)
 {
     int opt;
     unsigned short int used_name = FALSE;
@@ -121,6 +129,26 @@ void parse_options(Hashmap* config, List* requests, int n_args, char** args)
     free(opt_name);
     free(opt_value);
     free(curr_request);
+
+    return validate_input(*config, *requests);
+}
+
+int validate_input(Hashmap config, List requests)
+{
+    /** Quelle da validare sono:
+        - D va usata con W o w
+        - L'argomento di R dev'essere un numero
+        - d va usata con R o r
+        - L'argomento di t dev'essere un numero
+
+    */
+
+    return 0;
+}
+
+int initialize_client(Hashmap config)
+{
+    return 0;
 }
 
 void print_client_options()
