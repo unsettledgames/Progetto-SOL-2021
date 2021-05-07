@@ -28,8 +28,10 @@ void parse_options(Hashmap* config, List* requests, int n_args, char** args)
 
     Request* curr_request = malloc(sizeof(Request));
 
-    sprintf(opt_value, "%d", 0);
+    sprintf(opt_value, "%d%c", 0, '\0');
     hashmap_put(config, opt_value, "p");
+
+    opt_value = malloc(sizeof(char) * OPT_VALUE_LENGTH);
 
     while ((opt = getopt(n_args, args, "hf:w:W:D:R:r:d:t:l:u:c:p")) != -1)
     {
@@ -40,10 +42,16 @@ void parse_options(Hashmap* config, List* requests, int n_args, char** args)
             case 'D':
             case 'd':
             case 't':
-                // Converto il nome dell'opzione a stringa
-                sprintf(opt_name, "%c", opt);
+                // Converto il nome dell'opzione a stringa, aggiungo i terminatori
+                sprintf(opt_name, "%c%c", opt, '\0');
+                sprintf(opt_value, "%s%c", optarg, '\0');
                 // Uso tale stringa come chiave per il valore dell'argomento
-                hashmap_put(config, (void*)optarg, opt_name);
+                hashmap_put(config, (void*)opt_value, opt_name);
+
+                // Rialloco la chiave così la prossima volta è in una locazione diversa
+                opt_name = malloc(sizeof(char) * 5);
+                // Rialloco il parametro così la prossima volta è in una locazione diversa
+                opt_value = malloc(sizeof(char) * 100);
                 break;
             case 'h':
                 print_client_options();
@@ -104,12 +112,13 @@ void print_node_request(Node* node)
 {
     Request* to_print = (Request*)node->data;
 
-    printf("Op: %c, args: %s\n", to_print->code, to_print->arguments);
+    if (to_print->code != 'p')
+        printf("Op: %c, args: %s\n", to_print->code, to_print->arguments);
 }
 
 void print_node_string(Node* node)
 {
     char* string = (char*) (node->data);
 
-    printf("%s\n", string);
+    printf("Key: %s, value: %s\n", node->key, string);
 }
