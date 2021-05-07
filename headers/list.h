@@ -14,9 +14,10 @@ typedef struct list
     Node* head;
     Node* tail;
     int length;
+    void (*printer) (Node* to_print);
 }List;
 
-void list_initialize(List* list);
+void list_initialize(List* list, void (*printer)(Node*));
 
 void list_clean(List list);
 
@@ -37,5 +38,7 @@ void print_list(List to_print, char* name);
 int list_enqueue(List* list, void* data, const char* key);
 
 void* list_dequeue(List* list);
+
+int list_contains(List list, const char* key);
 
 #endif

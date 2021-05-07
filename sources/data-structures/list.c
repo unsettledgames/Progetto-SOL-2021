@@ -48,24 +48,31 @@ void list_clean(List list)
     }
 }
 
-void list_initialize(List* list)
+void list_initialize(List* list, void (*printer)(Node*))
 {
     list->head = NULL;
     list->tail = list->head;
     list->length = 0;
+    list->printer = printer;
 }
 
 int list_enqueue(List* list, void* data, const char* key)
 {
-    // Se non ho la coda, non ho mai inserito niente, quindi la lista è vuota
-    if (list->tail == NULL)
-        return EMPTY_LIST;
-    
     // Creo il nodo
     Node* to_add = create_node(data, key);
-    // Lo metto in fondo e aggiorno la coda
-    list->tail->next = to_add;
-    list->tail = list->tail->next;    
+
+    // Se non ho la coda, non ho mai inserito niente, quindi la lista è vuota
+    if (list->tail == NULL)
+    {
+        list->head = to_add;
+        list->tail = list->head;
+    }
+    else
+    {
+        // Lo metto in fondo e aggiorno la coda
+        list->tail->next = to_add;
+        list->tail = list->tail->next;        
+    }
 
     // La lunghezza della lista è aumentata
     list->length++;
@@ -262,6 +269,24 @@ int list_push(List* list, void* data, const char* key)
     return 0;
 }
 
+int list_contains(List list, const char* key)
+{
+    Node* curr = list.head;
+
+    while (curr != NULL)
+    {
+        if (curr->key != NULL && strcmp(curr->key, key) == 0)
+        {
+            printf("Trovato\n");
+            return TRUE;
+        }
+
+        curr = curr->next;
+    }
+
+    return FALSE;
+}
+
 void print_list(List to_print, char* name)
 {
     if (to_print.head != NULL)
@@ -273,7 +298,7 @@ void print_list(List to_print, char* name)
 
     while (curr != NULL)
     {
-        printf("%d\n", *(int*)curr->data);
+        to_print.printer(curr);
         curr = curr->next;
     }
 }

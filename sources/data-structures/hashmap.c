@@ -40,13 +40,14 @@ int main(int argc, char** argv)
 
 */
 
-void hashmap_initialize(Hashmap* hm, int size)
+void hashmap_initialize(Hashmap* hm, int size, void (*printer) (Node* to_print))
 {
     hm->lists = malloc(sizeof(List) * size);
     hm->size = size;
+    hm->printer = printer;
     
     for (int i=0; i<size; i++)
-        list_initialize(&(hm->lists[i]));
+        list_initialize(&(hm->lists[i]), printer);
 }
 
 void hashmap_clean(Hashmap hm)
@@ -88,13 +89,19 @@ void* hashmap_get(Hashmap hm, const char* key)
         curr = curr->next;
     }
 
-    return curr->data;
+    if (curr != NULL)
+        return curr->data;
+    return NULL;
 }
 
 int hashmap_put(Hashmap* hm, void* data, const char* key)
 {
     // Indice della lista in cui inserire
     int index = hashmap_hash(key, hm->size);
+
+    // Rimuovo l'entry precedente se ce n'era già una
+    if (list_contains(hm->lists[index], key))
+        list_remove_by_key(&(hm->lists[index]), key);
     // Inserisco nella lista
     list_push(&(hm->lists[index]), data, key);
 

@@ -3,6 +3,7 @@
 
 #include <stdio.h>
 #include <stdlib.h>
+#include "consts.h"
 
 typedef struct node 
 {

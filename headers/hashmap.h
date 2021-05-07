@@ -10,9 +10,10 @@ typedef struct hashmap
 {
     List* lists;
     int size;
+    void (*printer) (Node* to_print);
 }Hashmap;
 
-void hashmap_initialize(Hashmap* hm, int size);
+void hashmap_initialize(Hashmap* hm, int size, void (*printer) (Node*));
 
 void hashmap_clean(Hashmap hm);
 

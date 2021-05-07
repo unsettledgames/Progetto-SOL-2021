@@ -1,16 +1,115 @@
-#include <stdio.h>
-#include <stdlib.h>
-
-#include "nodes.h"
-#include "list.h"
+#include "client.h"
 
 int main(int argc, char** argv)
 {
-    int a = 4;
-    Node* nodo = create_node((void*)&a, "sas");
-    List lista;
+    Hashmap config;
+    List requests;
 
-    printf("%d\n", *(int*)nodo->data);
-    printf("Tutto ok?\n");
+    hashmap_initialize(&config, 1021, print_node_string);;
+    list_initialize(&requests, print_node_request);
+
+    parse_options(&config, &requests, argc, argv);
+
+    print_hashmap(config, "Config data");
+    print_list(requests, "Requests");
+
+    hashmap_clean(config);
+    
     return 0;
+}
+
+
+void parse_options(Hashmap* config, List* requests, int n_args, char** args)
+{
+    int opt;
+    
+    char* opt_name = malloc(sizeof(char) * OPT_NAME_LENGTH);
+    char* opt_value = malloc(sizeof(char) * OPT_VALUE_LENGTH);
+
+    Request* curr_request = malloc(sizeof(Request));
+
+    sprintf(opt_value, "%d", 0);
+    hashmap_put(config, opt_value, "p");
+
+    while ((opt = getopt(n_args, args, "hf:w:W:D:R:r:d:t:l:u:c:p")) != -1)
+    {
+        switch (opt)
+        {
+            // Gestisco le opzioni inseribili una sola volta (opzioni di configurazione)
+            case 'f':
+            case 'D':
+            case 'd':
+            case 't':
+                // Converto il nome dell'opzione a stringa
+                sprintf(opt_name, "%c", opt);
+                // Uso tale stringa come chiave per il valore dell'argomento
+                hashmap_put(config, (void*)optarg, opt_name);
+                break;
+            case 'h':
+                print_client_options();
+                break;
+            case 'p':
+                break;
+            // Gestisco le opzioni che richiedono una lista di argomenti separati da virgola
+            case 'w':
+            case 'W':
+            case 'r':
+            case 'l':
+            case 'u':
+            case 'c':
+                // Salvo le informazioni passate da linea di comando
+                curr_request->code = opt;
+                curr_request->arguments = (char*)optarg;
+
+                printf("Parsing Op: %c, args: %s\n", curr_request->code, curr_request->arguments);
+                // Inserisco la richiesta nella coda delle richieste
+                list_enqueue(requests, (void*)curr_request, NULL);
+
+                curr_request = malloc(sizeof(Request));
+                break;
+            case 'R':
+                break;
+            // Gestisco le istruzioni con un parametro opzionale
+            case ':':
+                switch (optopt)
+                {
+                    case 'R':
+                        // Stampo il valore di default a stringa
+                        sprintf(opt_value, "%d", 0);
+                        // Metto quella stringa nella tabella
+                        //hashmap_put(ret, (void*)opt_value, "R");
+                        break;
+                    default:
+                        fprintf(stderr, "L'opzione %c non ammette argomenti opzionali.\n", optopt);
+                }
+            case '?':
+                fprintf(stderr, "L'opzione %c non e' stata immessa correttamente.\n", optopt);
+                break;
+            default:
+                break;
+        }
+    }
+
+    free(opt_name);
+    free(opt_value);
+    free(curr_request);
+}
+
+void print_client_options()
+{
+
+}
+
+void print_node_request(Node* node)
+{
+    Request* to_print = (Request*)node->data;
+
+    printf("Op: %c, args: %s\n", to_print->code, to_print->arguments);
+}
+
+void print_node_string(Node* node)
+{
+    char* string = (char*) (node->data);
+
+    printf("%s\n", string);
 }
