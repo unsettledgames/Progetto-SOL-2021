@@ -15,5 +15,10 @@ Node* create_node(void* to_set, const char* key)
 
 void clean_node(Node* to_clean)
 {
+    if (to_clean->data != NULL)
+        free(to_clean->data);
+    if (to_clean->key != NULL)
+        free((void*)to_clean->key);
+
     free(to_clean);
 }

@@ -28,10 +28,12 @@ void parse_options(Hashmap* config, List* requests, int n_args, char** args)
 
     Request* curr_request = malloc(sizeof(Request));
 
-    sprintf(opt_value, "%d%c", 0, '\0');
-    hashmap_put(config, opt_value, "p");
+    sprintf(opt_value, "%d", 0);
+    sprintf(opt_name, "p");
+    hashmap_put(config, opt_value, opt_name);
 
     opt_value = malloc(sizeof(char) * OPT_VALUE_LENGTH);
+    opt_name = malloc(sizeof(char) * OPT_NAME_LENGTH);
 
     while ((opt = getopt(n_args, args, "hf:w:W:D:R:r:d:t:l:u:c:p")) != -1)
     {

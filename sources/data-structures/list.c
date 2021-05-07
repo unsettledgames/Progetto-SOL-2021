@@ -43,8 +43,8 @@ void list_clean(List list)
     {
         prev = curr;
         curr = curr->next;
-        
-        free(prev);
+
+        clean_node(prev);
     }
 }
 
