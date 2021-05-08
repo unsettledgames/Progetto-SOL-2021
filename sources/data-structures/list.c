@@ -269,22 +269,39 @@ int list_push(List* list, void* data, const char* key)
     return 0;
 }
 
-int list_contains(List list, const char* key)
+int list_contains_key(List list, const char* key)
 {
     Node* curr = list.head;
 
     while (curr != NULL)
     {
         if (curr->key != NULL && strcmp(curr->key, key) == 0)
-        {
-            printf("Trovato\n");
             return TRUE;
-        }
 
         curr = curr->next;
     }
 
     return FALSE;
+}
+
+int list_contains_string(List list, const char* str)
+{
+    Node* curr = list.head;
+    int i = 0;
+
+    while (curr != NULL)
+    {
+        if (curr->data != NULL && strcmp((char*)curr->data, str) == 0)
+        {
+            printf("Trovato\n");
+            return i;
+        }
+
+        i++;
+        curr = curr->next;
+    }
+
+    return NOT_FOUND;
 }
 
 void print_list(List to_print, char* name)

@@ -27,4 +27,6 @@ void print_hashmap(Hashmap hm, char* name);
 
 int hashmap_remove(Hashmap* hm, const char* key);
 
+int hashmap_has_key(Hashmap hm, const char* key);
+
 #endif

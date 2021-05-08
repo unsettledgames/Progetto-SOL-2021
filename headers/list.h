@@ -8,6 +8,7 @@
 #define INVALID_INDEX   -1
 #define NO_DATA         -2
 #define EMPTY_LIST      -3
+#define NOT_FOUND       -4
 
 typedef struct list
 {
@@ -39,6 +40,8 @@ int list_enqueue(List* list, void* data, const char* key);
 
 void* list_dequeue(List* list);
 
-int list_contains(List list, const char* key);
+int list_contains_key(List list, const char* key);
+
+int list_contains_string(List list, const char* str);
 
 #endif

@@ -18,7 +18,6 @@ int main(int argc, char** argv)
 
 /*
     print_hashmap(config, "Config data");
-    print_list(requests, "Requests");
 */
     // Pulisco la memoria delle strutture dati
     hashmap_clean(config);
@@ -130,18 +129,75 @@ int parse_options(Hashmap* config, List* requests, int n_args, char** args)
     free(opt_value);
     free(curr_request);
 
+    print_list(*requests, "Requests");
+
     return validate_input(*config, *requests);
 }
 
 int validate_input(Hashmap config, List requests)
 {
-    /** Quelle da validare sono:
-        - D va usata con W o w
-        - L'argomento di R dev'essere un numero
-        - d va usata con R o r
-        - L'argomento di t dev'essere un numero
+    // -D va usata con -W o -w
+    if (hashmap_has_key(config, "D"))
+    {
+        if (!(list_contains_string(requests, "w") || list_contains_string(requests, "W")))
+        {
+            fprintf(stderr, "L'opzione -D non puo' essere usata senza -w o -W.\n");
+            return INCONSISTENT_INPUT_ERROR;
+        }
+    }
 
-    */
+    // -d va usata con -R o -r
+    if (hashmap_has_key(config, "d"))
+    {
+        if (!(list_contains_string(requests, "r") || list_contains_string(requests, "R")))
+        {
+            fprintf(stderr, "L'opzione -d non puo' essere usata senza -r o -R.\n");
+            return INCONSISTENT_INPUT_ERROR;
+        }
+    }
+
+    // L'argomento di t dev'essere un numero e dev'essere un numero valido
+    if (hashmap_has_key(config, "t"))
+    {
+        // Usato per gestire gli errori in strtol
+        char* endptr = NULL;
+        char* t_value = (char*)hashmap_get(config, "t");
+
+        int t = strtol(t_value, &endptr, 10);
+
+        if ((t == 0 && errno != 0) || (t == 0 && endptr == t_value))
+        {
+            fprintf(stderr, "Il parametro di -t non è valido.\n");
+            errno = 0;
+            return NAN_INPUT_ERROR;
+        }
+        else
+        {
+            if (t < 0)
+            {
+                fprintf(stderr, "Il parametro di -t non puo' essere un numero negativo.\n");
+                return INVALID_NUMBER_INPUT_ERROR;
+            }
+        }
+    }
+
+    // L'argomento di R, se esiste, dev'essere un numero
+    int r_index = list_contains_string(requests, "R");
+    if (r_index >= 0)
+    {
+        // Usato per gestire gli errori in strtol
+        char* endptr = NULL;
+        Request* R_value = (Request*)list_get(requests, r_index);
+
+        int R = strtol(R_value->arguments, &endptr, 10);
+
+        if ((R == 0 && errno != 0) || (R == 0 && endptr == R_value->arguments))
+        {
+            fprintf(stderr, "Il parametro di -R non è valido.\n");
+            errno = 0;
+            return NAN_INPUT_ERROR;
+        }
+    }
 
     return 0;
 }
@@ -153,7 +209,7 @@ int initialize_client(Hashmap config)
 
 void print_client_options()
 {
-
+    
 }
 
 void print_node_request(Node* node)

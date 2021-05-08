@@ -100,7 +100,7 @@ int hashmap_put(Hashmap* hm, void* data, const char* key)
     int index = hashmap_hash(key, hm->size);
 
     // Rimuovo l'entry precedente se ce n'era già una
-    if (list_contains(hm->lists[index], key))
+    if (list_contains_key(hm->lists[index], key))
         list_remove_by_key(&(hm->lists[index]), key);
     // Inserisco nella lista
     list_push(&(hm->lists[index]), data, key);
@@ -116,6 +116,20 @@ int hashmap_remove(Hashmap* hm, const char* key)
     list_remove_by_key(&(hm->lists[index]), key);
 
     return 0;
+}
+
+int hashmap_has_key(Hashmap hm, const char* key)
+{
+    for (int i=0; i<hm.size; i++)
+    {
+        if (hm.lists[i].length != 0)
+        {
+            if (list_contains_key(hm.lists[i], key))
+                return TRUE;
+        }
+    }
+
+    return FALSE;
 }
 
 void print_hashmap(Hashmap hm, char* name)

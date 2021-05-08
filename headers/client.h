@@ -7,10 +7,13 @@
 
 #define INPUT_TYPE_ERROR            -1
 #define INCONSISTENT_INPUT_ERROR    -2
+#define NAN_INPUT_ERROR             -3
+#define INVALID_NUMBER_INPUT_ERROR  -4
 
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
+#include <errno.h>
 
 #include "nodes.h"
 #include "list.h"
