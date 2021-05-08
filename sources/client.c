@@ -1,5 +1,8 @@
 #include "client.h"
 
+ClientConfig client_configuration;
+int client_err = 0;
+
 int main(int argc, char** argv)
 {
     // Creo l'hashmap che contiene la configurazione del client
@@ -14,11 +17,11 @@ int main(int argc, char** argv)
     // Parsing dei dati da input
     parse_options(&config, &requests, argc, argv);
     // Inizializzazione del client sulla base dei parametri di configurazione
-    initialize_client(config);
+    client_configuration = initialize_client(config);
 
-/*
-    print_hashmap(config, "Config data");
-*/
+    // Esecuzione delle richieste
+    execute_requests(&requests);
+
     // Pulisco la memoria delle strutture dati
     hashmap_clean(config);
     list_clean(requests);
@@ -26,6 +29,38 @@ int main(int argc, char** argv)
     return 0;
 }
 
+ClientConfig initialize_client(Hashmap config)
+{
+    ClientConfig ret;
+
+    if (hashmap_has_key(config, "f"))
+    {
+        ret.socket_name = (char*)hashmap_get(config, "f");
+    }
+    else
+    {
+        fprintf(stderr, "Specificare il nome del socket a cui collegarsi tramite l'opzione -f name.\n");
+        client_err = MISSING_SOCKET_NAME;
+        
+        return ret;
+    }
+
+    /*
+        char* socket_name;
+        char* expelled_dir;
+        char* read_dir;
+        unsigned int request_rate;
+        unsigned int print_op_data;
+
+    */
+
+    return ret;
+}
+
+int execute_requests(List* requests)
+{
+
+}
 
 int parse_options(Hashmap* config, List* requests, int n_args, char** args)
 {
@@ -202,14 +237,9 @@ int validate_input(Hashmap config, List requests)
     return 0;
 }
 
-int initialize_client(Hashmap config)
-{
-    return 0;
-}
-
 void print_client_options()
 {
-    
+
 }
 
 void print_node_request(Node* node)

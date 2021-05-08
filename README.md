@@ -2,6 +2,9 @@
 
 ## TODO LIST
 
+- Configurazione client
+- Esecuzione richieste client
+
 #### DOCUMENTATION:
 - Commenti alle funzioni nelle strutture dati
 
