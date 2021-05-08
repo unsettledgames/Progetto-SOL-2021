@@ -17,14 +17,14 @@ int main(int argc, char** argv)
     // Parsing dei dati da input
     parse_options(&config, &requests, argc, argv);
     // Inizializzazione del client sulla base dei parametri di configurazione
-    client_configuration = initialize_client(config);
-
+    //client_configuration = initialize_client(config);
+    
     // Esecuzione delle richieste
     execute_requests(&requests);
 
     // Pulisco la memoria delle strutture dati
-    hashmap_clean(config);
-    list_clean(requests);
+    hashmap_clean(config, NULL);
+    list_clean(requests, NULL);
     
     return 0;
 }
@@ -158,6 +158,9 @@ int parse_options(Hashmap* config, List* requests, int n_args, char** args)
         if (used_val)
             // Rialloco il parametro così la prossima volta è in una locazione diversa
             opt_value = malloc(sizeof(char) * OPT_VALUE_LENGTH);
+        
+        used_name = FALSE;
+        used_val = FALSE;
     }
 
     free(opt_name);
@@ -166,7 +169,7 @@ int parse_options(Hashmap* config, List* requests, int n_args, char** args)
 
     print_list(*requests, "Requests");
 
-    return validate_input(*config, *requests);
+    return 0;//validate_input(*config, *requests);
 }
 
 int validate_input(Hashmap config, List requests)
@@ -255,4 +258,14 @@ void print_node_string(Node* node)
     char* string = (char*) (node->data);
 
     printf("Key: %s, value: %s\n", node->key, string);
+}
+
+void clean_request_node(Node* node)
+{
+    Request* data = (Request*) (node->data);
+
+    printf("Dati: %c %s\n", data->code, data->arguments);
+    free((void*)data->arguments);
+
+    printf("Liberata\n)");
 }

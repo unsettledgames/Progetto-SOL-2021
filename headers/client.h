@@ -50,4 +50,6 @@ void print_node_request(Node* node);
 
 void print_node_string(Node* to_print);
 
+void clean_request_node(Node* node);
+
 #endif

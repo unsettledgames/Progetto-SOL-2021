@@ -50,11 +50,11 @@ void hashmap_initialize(Hashmap* hm, int size, void (*printer) (Node* to_print))
         list_initialize(&(hm->lists[i]), printer);
 }
 
-void hashmap_clean(Hashmap hm)
+void hashmap_clean(Hashmap hm, void (*cleaner)(Node*))
 {
     for (int i=0; i<hm.size; i++)
     {
-        list_clean(hm.lists[i]);
+        list_clean(hm.lists[i], cleaner);
     }
 
     free(hm.lists);

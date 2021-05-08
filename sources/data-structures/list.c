@@ -34,7 +34,7 @@ int main(int argc, char** argv)
 }
 */
 
-void list_clean(List list)
+void list_clean(List list, void (*cleaner)(Node*))
 {
     Node* curr = list.head;
     Node* prev = NULL;
@@ -44,6 +44,8 @@ void list_clean(List list)
         prev = curr;
         curr = curr->next;
 
+        if (cleaner != NULL)
+            cleaner(prev);
         clean_node(prev);
     }
 }

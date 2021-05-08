@@ -15,7 +15,7 @@ typedef struct hashmap
 
 void hashmap_initialize(Hashmap* hm, int size, void (*printer) (Node*));
 
-void hashmap_clean(Hashmap hm);
+void hashmap_clean(Hashmap hm, void (*cleaner) (Node*));
 
 void* hashmap_get(Hashmap hm, const char* key);
 

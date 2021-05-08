@@ -20,7 +20,7 @@ typedef struct list
 
 void list_initialize(List* list, void (*printer)(Node*));
 
-void list_clean(List list);
+void list_clean(List list, void (*cleaner)(Node*));
 
 void* list_remove_by_index(List* list, unsigned int index);
 
