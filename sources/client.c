@@ -169,7 +169,7 @@ int parse_options(Hashmap* config, List* requests, int n_args, char** args)
 
     print_list(*requests, "Requests");
 
-    return 0;//validate_input(*config, *requests);
+    return validate_input(*config, *requests);
 }
 
 int validate_input(Hashmap config, List requests)
@@ -177,7 +177,7 @@ int validate_input(Hashmap config, List requests)
     // -D va usata con -W o -w
     if (hashmap_has_key(config, "D"))
     {
-        if (!(list_contains_string(requests, "w") || list_contains_string(requests, "W")))
+        if (!(list_contains_key(requests, "w") || list_contains_key(requests, "W")))
         {
             fprintf(stderr, "L'opzione -D non puo' essere usata senza -w o -W.\n");
             return INCONSISTENT_INPUT_ERROR;

@@ -291,9 +291,9 @@ int list_contains_string(List list, const char* str)
     Node* curr = list.head;
     int i = 0;
 
-    while (curr != NULL)
+    while (curr != NULL && str != NULL)
     {
-        if (curr->data != NULL && strcmp((char*)curr->data, str) == 0)
+        if (curr->data != NULL && strcmp((char*)(curr->data), str) == 0)
         {
             printf("Trovato\n");
             return i;
