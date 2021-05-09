@@ -42,7 +42,11 @@ int validate_input(Hashmap config, List requests);
 
 ClientConfig initialize_client(Hashmap config);
 
+int connect_to_server();
+
 int execute_requests(List* requests);
+
+char** parse_request_arguments(char* args);
 
 void print_client_options();
 
@@ -55,5 +59,26 @@ void print_node_string(Node* to_print);
 void clean_request_node(Node* node);
 
 void clean_client(Hashmap config, List requests);
+
+// API
+int openConnection(const char* sockname, int msec, const struct timespec abstime);
+
+int closeConnection(const char* sockname);
+
+int openFile(const char* pathname, int flags);
+
+int readFile(const char* pathname, void** buf, size_t* size);
+
+int readFile(const char* pathname, void** buf, size_t* size);
+
+int appendToFile(const char* pathname, void* buf, size_t size, const char* dirname);
+
+int lockFile(const char* pathname);
+
+int unlockFile(const char* pathname);
+
+int closeFile(const char* pathname);
+
+int removeFile(const char* pathname);
 
 #endif

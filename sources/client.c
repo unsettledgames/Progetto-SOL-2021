@@ -38,6 +38,92 @@ int main(int argc, char** argv)
     return 0;
 }
 
+int execute_requests(List* requests)
+{
+    // Finché non ho esaurito le richieste
+    while (requests->head != NULL)
+    {
+        // Requests->head contiene la prossima richiesta da eseguire nei dati
+        Request* curr_request = (Request*) requests->head->data;
+        // Codice operazione
+        char op = curr_request->code;
+        // Argomenti
+        char** args = parse_request_arguments(curr_request->arguments);
+
+        // Devo fare cose diverse in base all'operazione
+        switch (op)
+        {
+            case 'w':
+                // Primo argomento: cartella
+                // Secondo argomento (se c'è): numero massimo di file da inviare
+                break;
+            case 'W':
+                // Argomenti: nomi di file da inviare
+                break;
+            case 'r':
+                // Argomenti: lista di nomi di file da leggere
+                break;
+            case 'R':
+                // Argomento: numero di file da leggere dal server, se <0 li legge tutti
+                break;
+            case 'l':
+                // Argomenti: file su cui fare mutua esclusione
+                break;
+            case 'u':
+                // Argomenti: file su cui disabilitare mutua esclusione
+                break;
+            case 'c':
+                // Argomenti: file da rimuovere dal server
+                break;
+            default:
+                fprintf(stderr, "Operazione %c non riconosciuta, impossibile eseguirla.\n", op);
+                break;
+        }
+
+        // Ho esaurito una richiesta, passo alla prossima
+        list_dequeue(requests);
+        // Pulisco la lista degli argomenti
+        free(args);
+    }
+
+    return 0;
+}
+
+char** parse_request_arguments(char* args)
+{
+    char** ret;
+    int n_args = 1;
+    int i = 0; 
+
+    // Calcolo il numero di argomenti, ogni virgola è un argomento in più
+    while (args[i] != '\0')
+    {
+        if (args[i] == ',')
+            n_args++;
+        i++;
+    }
+    n_args++;
+
+    // Alloco correttamente il vettore di argomenti
+    ret = malloc(sizeof(char*) * n_args);
+    i = 0;
+
+    // Prendo la prima stringa
+    ret[0] = strtok(args, ",");
+    i++;
+
+    // Prendo le restanti
+    while ((ret[i] = strtok(NULL, ",")) != NULL)
+        i++;
+
+    return ret;
+}
+
+int connect_to_server()
+{
+    return 0;
+}
+
 void clean_client(Hashmap config, List requests)
 {
     // Pulisco la memoria delle strutture dati
@@ -107,10 +193,6 @@ void print_client_config(ClientConfig to_print)
    
 }
 
-int execute_requests(List* requests)
-{
-    return 0;
-}
 
 int parse_options(Hashmap* config, List* requests, int n_args, char** args)
 {
@@ -254,6 +336,7 @@ int validate_input(Hashmap config, List requests)
         char* endptr = NULL;
         char* t_value = (char*)hashmap_get(config, "t");
 
+        errno = 0;
         int t = strtol(t_value, &endptr, 10);
 
         if ((t == 0 && errno != 0) || (t == 0 && endptr == t_value))
@@ -280,6 +363,7 @@ int validate_input(Hashmap config, List requests)
         char* endptr = NULL;
         Request* R_value = (Request*)list_get(requests, r_index);
 
+        errno = 0;
         int R = strtol(R_value->arguments, &endptr, 10);
 
         if ((R == 0 && errno != 0) || (R == 0 && endptr == R_value->arguments))
