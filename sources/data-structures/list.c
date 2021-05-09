@@ -295,7 +295,6 @@ int list_contains_string(List list, const char* str)
     {
         if (curr->data != NULL && strcmp((char*)(curr->data), str) == 0)
         {
-            printf("Trovato\n");
             return i;
         }
 

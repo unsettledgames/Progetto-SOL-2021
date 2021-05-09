@@ -1,7 +1,6 @@
 #include "client.h"
 
 ClientConfig client_configuration;
-int client_err = 0;
 
 int main(int argc, char** argv)
 {
@@ -15,23 +14,47 @@ int main(int argc, char** argv)
     list_initialize(&requests, print_node_request);
 
     // Parsing dei dati da input
-    parse_options(&config, &requests, argc, argv);
-    // Inizializzazione del client sulla base dei parametri di configurazione
-    //client_configuration = initialize_client(config);
-    
-    // Esecuzione delle richieste
-    execute_requests(&requests);
+    int parse_err = parse_options(&config, &requests, argc, argv);
 
+    // Parsing e validazione dei dati avvenuta con successo
+    if (parse_err == 0)
+    {
+        // Inizializzazione del client sulla base dei parametri di configurazione
+        client_configuration = initialize_client(config);
+        
+        if (errno == 0)
+        {
+            // Esecuzione delle richieste
+            execute_requests(&requests);
+        }
+        else
+        {
+            clean_client(config, requests);
+            return errno;
+        }
+    }
+
+    clean_client(config, requests);
+    return 0;
+}
+
+void clean_client(Hashmap config, List requests)
+{
     // Pulisco la memoria delle strutture dati
     hashmap_clean(config, NULL);
     list_clean(requests, NULL);
-    
-    return 0;
 }
 
 ClientConfig initialize_client(Hashmap config)
 {
     ClientConfig ret;
+    errno = 0;
+
+    ret.socket_name = NULL;
+    ret.expelled_dir = NULL;
+    ret.read_dir = NULL;
+    ret.request_rate = 0;
+    ret.print_op_data = 0;
 
     if (hashmap_has_key(config, "f"))
     {
@@ -40,26 +63,53 @@ ClientConfig initialize_client(Hashmap config)
     else
     {
         fprintf(stderr, "Specificare il nome del socket a cui collegarsi tramite l'opzione -f name.\n");
-        client_err = MISSING_SOCKET_NAME;
+        errno = MISSING_SOCKET_NAME;
         
         return ret;
     }
 
-    /*
-        char* socket_name;
-        char* expelled_dir;
-        char* read_dir;
-        unsigned int request_rate;
-        unsigned int print_op_data;
+    if (hashmap_has_key(config, "D"))
+    {
+        ret.expelled_dir = (char*)hashmap_get(config, "D");
+    }
 
-    */
+    if (hashmap_has_key(config, "d"))
+    {
+        ret.read_dir = (char*)hashmap_get(config, "d");
+    }
+
+    if (hashmap_has_key(config, "t"))
+    {
+        ret.request_rate = atol((char*)hashmap_get(config, "t"));
+    }
+
+    if (hashmap_has_key(config, "p"))
+    {
+        ret.print_op_data = atol((char*)hashmap_get(config, "p"));
+    }
 
     return ret;
 }
 
+void print_client_config(ClientConfig to_print)
+{
+    printf("Configurazione del client:\n");
+
+    printf("Nome del socket: %s\n", to_print.socket_name);
+
+    if (to_print.expelled_dir != NULL)
+        printf("Path di scritura file espulsi: %s\n", to_print.expelled_dir);
+    if (to_print.read_dir != NULL)
+        printf("Path di lettura file: %s\n", to_print.read_dir);
+    
+    printf("Intervallo delle richieste: %d\n", to_print.request_rate);
+    printf("Stampa dei dati delle operazioni: %d\n", to_print.print_op_data);
+   
+}
+
 int execute_requests(List* requests)
 {
-
+    return 0;
 }
 
 int parse_options(Hashmap* config, List* requests, int n_args, char** args)
@@ -117,14 +167,17 @@ int parse_options(Hashmap* config, List* requests, int n_args, char** args)
             case 'l':
             case 'u':
             case 'c':
+                sprintf(opt_name, "%c", opt);
                 // Salvo le informazioni passate da linea di comando
                 curr_request->code = opt;
                 curr_request->arguments = (char*)optarg;
                 
                 // Inserisco la richiesta nella coda delle richieste
-                list_enqueue(requests, (void*)curr_request, NULL);
+                list_enqueue(requests, (void*)curr_request, opt_name);
                 // Rialloco la struttura
                 curr_request = malloc(sizeof(Request));
+
+                used_name = TRUE;
                 break;
             // Gestisco le istruzioni con un parametro opzionale
             case 'R':
@@ -264,8 +317,5 @@ void clean_request_node(Node* node)
 {
     Request* data = (Request*) (node->data);
 
-    printf("Dati: %c %s\n", data->code, data->arguments);
     free((void*)data->arguments);
-
-    printf("Liberata\n)");
 }

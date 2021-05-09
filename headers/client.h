@@ -46,10 +46,14 @@ int execute_requests(List* requests);
 
 void print_client_options();
 
+void print_client_config(ClientConfig c);
+
 void print_node_request(Node* node);
 
 void print_node_string(Node* to_print);
 
 void clean_request_node(Node* node);
+
+void clean_client(Hashmap config, List requests);
 
 #endif

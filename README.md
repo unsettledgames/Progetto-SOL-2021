@@ -5,6 +5,11 @@
 - Configurazione client
 - Esecuzione richieste client
 
+### SHOULD HAVE
+
+- Implementare anche un comparatore nei nodi così da evitare problemi di confusione tra chiavi e valori
+  nelle code, che tecnicamente hanno solo valori
+
 #### DOCUMENTATION:
 - Commenti alle funzioni nelle strutture dati
 
