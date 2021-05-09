@@ -5,15 +5,6 @@
 #define OPT_NAME_LENGTH     5
 #define OPT_VALUE_LENGTH    100
 
-#define INPUT_TYPE_ERROR            -1
-#define INCONSISTENT_INPUT_ERROR    -2
-#define NAN_INPUT_ERROR             -3
-#define INVALID_NUMBER_INPUT_ERROR  -4
-
-#define MISSING_SOCKET_NAME     -5
-#define FILESYSTEM_ERROR        -6
-#define NOT_A_FOLDER            -7
-
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
@@ -26,6 +17,7 @@
 #include "list.h"
 #include "hashmap.h"
 #include "utility.h"
+#include "errors.h"
 
 typedef struct request
 {

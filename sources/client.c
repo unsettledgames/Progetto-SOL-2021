@@ -77,8 +77,21 @@ int execute_requests(ClientConfig config, List* requests)
                 send_from_dir(directory, &n_files, config.expelled_dir);
                 
                 break;
-            case 'W':
-                // Argomenti: nomi di file da inviare
+            case 'W':;
+                // Ogni file è una stringa nell'array di argomenti
+                int i = 0;
+
+                while (args[i] != NULL)
+                {
+                    char* real_path = get_absolute_path(args[i]);
+
+                    if (real_path == NULL)
+                        return FILE_NOT_FOUND;
+
+                    writeFile(args[i], config.expelled_dir);
+                    i++;
+                }
+
                 break;
             case 'r':
                 // Argomenti: lista di nomi di file da leggere
@@ -141,16 +154,16 @@ int send_from_dir(const char* dirpath, int* n_files, const char* write_dir)
                     {
                         // Aggiungo il nome del file corrente 
                         char filename[PATH_MAX];
-
+                        
                         int dir_len = strlen(dirpath);
                         int file_len = strlen(file->d_name);
-
+                        
                         if ((dir_len + file_len + 2) > PATH_MAX) 
                         {
                             fprintf(stderr, "Path del file da spedire troppo lungo\n");
                             return FILESYSTEM_ERROR;
                         }
-
+                        
                         // Aggiungo il nome del file al percorso corrente
                         strncpy(filename, dirpath, PATH_MAX - 1);
                         strncat(filename, "/", PATH_MAX - 1);
@@ -160,6 +173,9 @@ int send_from_dir(const char* dirpath, int* n_files, const char* write_dir)
                         send_from_dir(filename, n_files, write_dir);
                     }
                 }
+
+                // Posso chiudere la directory
+                closedir(dir);
 
                 return 0;
             }

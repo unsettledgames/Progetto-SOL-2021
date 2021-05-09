@@ -15,3 +15,10 @@ int string_to_int(char* string, int positive_constraint)
     
     return result;
 }
+
+char* get_absolute_path(char* relative_path)
+{
+    char buffer[PATH_MAX];
+
+    return realpath(relative_path, buffer);
+}
