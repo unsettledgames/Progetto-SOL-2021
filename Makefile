@@ -14,12 +14,12 @@ O_FOLDER = build/obj
 DS_FOLDER = sources/data-structures
 
 # Dipendenze di client e server
-client_deps = sources/client.c libs/libdata-structures.so
+client_deps = sources/client.c sources/utility/utility.c libs/libdata-structures.so
 server_deps = sources/server.c libs/libdata-structures.so
 
 # Compilazione del client
 client: $(client_deps)
-	$(CC) $(INCLUDES) $(GENERIC_FLAGS) sources/client.c -o client -Wl,-rpath,./libs -L ./libs -ldata-structures
+	$(CC) $(INCLUDES) $(GENERIC_FLAGS) sources/client.c sources/utility/utility.c -o client -Wl,-rpath,./libs -L ./libs -ldata-structures
 
 # Make delle librerie, che sono indipendenti
 libs/libdata-structures.so: $(O_FOLDER)/nodes.o $(O_FOLDER)/list.o $(O_FOLDER)/hashmap.o

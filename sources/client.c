@@ -25,10 +25,11 @@ int main(int argc, char** argv)
         if (errno == 0)
         {
             // Esecuzione delle richieste
-            execute_requests(&requests);
+            execute_requests(client_configuration, &requests);
         }
         else
         {
+            fprintf(stderr, "Errore nell'inizializzazione della configurazione del client\n");
             clean_client(config, requests);
             return errno;
         }
@@ -38,7 +39,7 @@ int main(int argc, char** argv)
     return 0;
 }
 
-int execute_requests(List* requests)
+int execute_requests(ClientConfig config, List* requests)
 {
     // Finché non ho esaurito le richieste
     while (requests->head != NULL)
@@ -53,9 +54,28 @@ int execute_requests(List* requests)
         // Devo fare cose diverse in base all'operazione
         switch (op)
         {
-            case 'w':
+            case 'w':;
                 // Primo argomento: cartella
+                char* directory = args[0];
                 // Secondo argomento (se c'è): numero massimo di file da inviare
+                int n_files = -1;
+
+                if (args[1] != NULL)
+                {
+                    n_files = string_to_int(args[1], TRUE);
+
+                    if (errno != 0)
+                    {
+                        fprintf(stderr, "Errore nella conversione del secondo parametro di -w\n");
+                        return errno;
+                    }
+                }
+
+                if (n_files == 0)
+                    n_files--;
+                // Visito ricorsivamente la directory finché non ho spedito il numero corretto di file
+                send_from_dir(directory, &n_files, config.expelled_dir);
+                
                 break;
             case 'W':
                 // Argomenti: nomi di file da inviare
@@ -86,6 +106,133 @@ int execute_requests(List* requests)
         free(args);
     }
 
+    return 0;
+}
+
+int send_from_dir(const char* dirpath, int* n_files, const char* write_dir)
+{
+    // Se ho finito, ritorno
+    if (n_files == 0)
+        return 0;
+    // Controllo che il parametro sia una directory
+    struct stat dir_info;
+
+    if (stat(dirpath, &dir_info) == 0) 
+    {
+        // Se dirpath è una cartella
+        if (S_ISDIR(dir_info.st_mode))
+        {
+            DIR * dir;
+            // Cerco di aprire la cartella
+            if ((dir = opendir(dirpath)) == NULL) 
+            {
+                fprintf(stderr, "Impossibile aprire la directory %s\n", dirpath);
+                return FILESYSTEM_ERROR;
+            } 
+            else 
+            {
+                struct dirent *file;
+                
+                // Finché non ho errore, ho qualcosa da leggere e ho ancora file da leggere
+                while((errno=0, file = readdir(dir)) != NULL && *n_files != 0) 
+                {
+                    // Ignoro . e .., altrimenti trovo file inesistenti o spedisco l'intero filesystem
+                    if (strcmp(file->d_name, ".") != 0 && strcmp(file->d_name, "..") != 0)
+                    {
+                        // Aggiungo il nome del file corrente 
+                        char filename[PATH_MAX];
+
+                        int dir_len = strlen(dirpath);
+                        int file_len = strlen(file->d_name);
+
+                        if ((dir_len + file_len + 2) > PATH_MAX) 
+                        {
+                            fprintf(stderr, "Path del file da spedire troppo lungo\n");
+                            return FILESYSTEM_ERROR;
+                        }
+
+                        // Aggiungo il nome del file al percorso corrente
+                        strncpy(filename, dirpath, PATH_MAX - 1);
+                        strncat(filename, "/", PATH_MAX - 1);
+                        strncat(filename, file->d_name, PATH_MAX - 1);
+                        
+                        // Richiamo la funzione sul nuovo percorso
+                        send_from_dir(filename, n_files, write_dir);
+                    }
+                }
+
+                return 0;
+            }
+        }
+        // Se invece è un file
+        else if (S_ISREG(dir_info.st_mode))
+        {
+            // Ottengo il path completo
+            char full_path[PATH_MAX];
+            // Se l'invio è avvenuto con successo, segnalo che ho scritto un file
+            if (writeFile(realpath(dirpath, full_path), write_dir) == 0)
+                (*n_files)--;
+            return 0;
+        }
+        else
+            // Errore
+            return NOT_A_FOLDER;
+    }
+    else
+    {
+        fprintf(stderr, "Errore nell'esecuzione di stat sulla directory %s\n", dirpath);
+        return FILESYSTEM_ERROR;
+    }
+}
+
+int openConnection(const char* sockname, int msec, const struct timespec abstime)
+{
+    return 0;
+}
+
+int closeConnection(const char* sockname)
+{
+    return 0;
+}
+
+int openFile(const char* pathname, int flags)
+{
+    return 0;
+}
+
+int readFile(const char* pathname, void** buf, size_t* size)
+{
+    return 0;
+}
+
+int writeFile(const char* pathname, const char* dirname)
+{
+    printf("Spedisco %s\n", pathname);
+    return 0;
+}
+
+int appendToFile(const char* pathname, void* buf, size_t size, const char* dirname)
+{
+    return 0;
+}
+
+int lockFile(const char* pathname)
+{
+    return 0;
+}
+
+int unlockFile(const char* pathname)
+{
+    return 0;
+}
+
+int closeFile(const char* pathname)
+{
+    return 0;
+}
+
+int removeFile(const char* pathname)
+{
     return 0;
 }
 
@@ -301,8 +448,6 @@ int parse_options(Hashmap* config, List* requests, int n_args, char** args)
     free(opt_name);
     free(opt_value);
     free(curr_request);
-
-    print_list(*requests, "Requests");
 
     return validate_input(*config, *requests);
 }

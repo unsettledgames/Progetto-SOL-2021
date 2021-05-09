@@ -10,16 +10,22 @@
 #define NAN_INPUT_ERROR             -3
 #define INVALID_NUMBER_INPUT_ERROR  -4
 
-#define MISSING_SOCKET_NAME     -1
+#define MISSING_SOCKET_NAME     -5
+#define FILESYSTEM_ERROR        -6
+#define NOT_A_FOLDER            -7
 
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
 #include <errno.h>
+#include <dirent.h>
+#include <sys/types.h>
+#include <sys/stat.h>
 
 #include "nodes.h"
 #include "list.h"
 #include "hashmap.h"
+#include "utility.h"
 
 typedef struct request
 {
@@ -44,7 +50,7 @@ ClientConfig initialize_client(Hashmap config);
 
 int connect_to_server();
 
-int execute_requests(List* requests);
+int execute_requests(ClientConfig config, List* requests);
 
 char** parse_request_arguments(char* args);
 
@@ -60,6 +66,10 @@ void clean_request_node(Node* node);
 
 void clean_client(Hashmap config, List requests);
 
+int is_file(const char* path);
+
+int send_from_dir(const char* dirpath, int* n_files, const char* write_dir);
+
 // API
 int openConnection(const char* sockname, int msec, const struct timespec abstime);
 
@@ -69,7 +79,7 @@ int openFile(const char* pathname, int flags);
 
 int readFile(const char* pathname, void** buf, size_t* size);
 
-int readFile(const char* pathname, void** buf, size_t* size);
+int writeFile(const char* pathname, const char* dirname);
 
 int appendToFile(const char* pathname, void* buf, size_t size, const char* dirname);
 
