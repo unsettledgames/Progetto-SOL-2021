@@ -4,6 +4,7 @@
 
 #define OPT_NAME_LENGTH     5
 #define OPT_VALUE_LENGTH    100
+#define MAX_FILE_SIZE       100000
 
 #include <stdio.h>
 #include <stdlib.h>

@@ -1,0 +1,1 @@
+Contenuto del file1.txt, nel primo livello della directory di Test.

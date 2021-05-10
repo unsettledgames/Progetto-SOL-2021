@@ -50,6 +50,8 @@ int execute_requests(ClientConfig config, List* requests)
         char op = curr_request->code;
         // Argomenti
         char** args = parse_request_arguments(curr_request->arguments);
+        // Indice per scorrere i cicli
+        int i = 0;
 
         // Devo fare cose diverse in base all'operazione
         switch (op)
@@ -78,8 +80,8 @@ int execute_requests(ClientConfig config, List* requests)
                 
                 break;
             case 'W':;
-                // Ogni file è una stringa nell'array di argomenti
-                int i = 0;
+                // Ogni file da scrivere è una stringa nell'array di argomenti
+                i = 0;
 
                 while (args[i] != NULL)
                 {
@@ -88,22 +90,70 @@ int execute_requests(ClientConfig config, List* requests)
                     if (real_path == NULL)
                         return FILE_NOT_FOUND;
 
-                    writeFile(args[i], config.expelled_dir);
+                    writeFile(real_path, config.expelled_dir);
                     i++;
                 }
 
                 break;
             case 'r':
-                // Argomenti: lista di nomi di file da leggere
+                // Ogni file da leggere è una stringa nell'array di argomenti
+                i = 0;
+
+                while (args[i] != NULL)
+                {
+                    char* real_path = get_absolute_path(args[i]);
+                    char file_buffer[MAX_FILE_SIZE];
+                    size_t n_to_read = MAX_FILE_SIZE;
+
+                    if (real_path == NULL)
+                        return FILE_NOT_FOUND;
+
+                    readFile(real_path, (void**)&file_buffer, &n_to_read);
+                    i++;
+                }
+
                 break;
             case 'R':
                 // Argomento: numero di file da leggere dal server, se <0 li legge tutti
+                
+                // Invio richiesta al server
+                // Il server invia una struttura {file, n_rimanenti}
+                // Se n_rimanenti > 0, il client resta in ascolto e chiede il prossimo file
                 break;
             case 'l':
-                // Argomenti: file su cui fare mutua esclusione
+                // Ogni file su cui abilitare la lock è una stringa nell'array di argomenti
+                i = 0;
+
+                while (args[i] != NULL)
+                {
+                    char* real_path = get_absolute_path(args[i]);
+                    char file_buffer[MAX_FILE_SIZE];
+                    size_t n_to_read = MAX_FILE_SIZE;
+
+                    if (real_path == NULL)
+                        return FILE_NOT_FOUND;
+
+                    lockFile(real_path);
+                    i++;
+                }
+                
                 break;
             case 'u':
-                // Argomenti: file su cui disabilitare mutua esclusione
+                // Ogni file su cui disabilitare la lock è una stringa nell'array di argomenti
+                i = 0;
+
+                while (args[i] != NULL)
+                {
+                    char* real_path = get_absolute_path(args[i]);
+                    char file_buffer[MAX_FILE_SIZE];
+                    size_t n_to_read = MAX_FILE_SIZE;
+
+                    if (real_path == NULL)
+                        return FILE_NOT_FOUND;
+
+                    unlockFile(real_path);
+                    i++;
+                }
                 break;
             case 'c':
                 // Argomenti: file da rimuovere dal server
@@ -218,11 +268,24 @@ int openFile(const char* pathname, int flags)
 
 int readFile(const char* pathname, void** buf, size_t* size)
 {
+    // Apro il file nel server?
+    // Invio la richiesta
+    // Ricevo la risposta
+    // Chiudo il file?
+    // Scrivo il file nella cartella passata da linea di comando se necessario
+    // Termino
+    printf("Leggo %s\n", pathname);
     return 0;
 }
 
 int writeFile(const char* pathname, const char* dirname)
 {
+    // Apro il file nel server?
+    // Invio i dati 
+    // Ricevo i file espulsi
+    // Chiudo il file?
+    // Scrivo i file espulsi nella cartella passata da linea di comando se necessario
+    // Termino
     printf("Spedisco %s\n", pathname);
     return 0;
 }

@@ -2,8 +2,10 @@
 
 ## TODO LIST
 
-- Configurazione client
 - Esecuzione richieste client
+- Invio richieste al server
+- Attesa della risposta
+- Chiusura e pulizia
 
 ### SHOULD HAVE
 
