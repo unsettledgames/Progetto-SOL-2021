@@ -9,6 +9,10 @@
 #define FILESYSTEM_ERROR        -6
 #define NOT_A_FOLDER            -7
 
+// SERVER ERRORS
+
+#define CONFIG_FILE_ERROR       -8
+
 // UTILITY errors
 
 #define NAN_ERROR       -1

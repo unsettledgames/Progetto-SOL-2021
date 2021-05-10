@@ -26,3 +26,6 @@
 - Le liste ammettono copie? Dovrei implementare una contains ed evitare copie probabilmente
 - Dividere funzioni che svolgono compiti relativi a domini simili in librerie
 - Sarebbe probabilmente più pulito avere una libreria dedicata alla gestione degli errori
+- Se gli errori vanno gestiti a cascata e basta una exit(EXIT_FAILURE) per gestirli, allora potrebbe 
+  essere utile mettere certe funzioni in wrappers che gestiscano gli errori in modo autonomo per rendere
+  più pulito il codice.

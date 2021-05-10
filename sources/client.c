@@ -127,8 +127,6 @@ int execute_requests(ClientConfig config, List* requests)
                 while (args[i] != NULL)
                 {
                     char* real_path = get_absolute_path(args[i]);
-                    char file_buffer[MAX_FILE_SIZE];
-                    size_t n_to_read = MAX_FILE_SIZE;
 
                     if (real_path == NULL)
                         return FILE_NOT_FOUND;
@@ -145,8 +143,6 @@ int execute_requests(ClientConfig config, List* requests)
                 while (args[i] != NULL)
                 {
                     char* real_path = get_absolute_path(args[i]);
-                    char file_buffer[MAX_FILE_SIZE];
-                    size_t n_to_read = MAX_FILE_SIZE;
 
                     if (real_path == NULL)
                         return FILE_NOT_FOUND;
@@ -274,7 +270,6 @@ int readFile(const char* pathname, void** buf, size_t* size)
     // Chiudo il file?
     // Scrivo il file nella cartella passata da linea di comando se necessario
     // Termino
-    printf("Leggo %s\n", pathname);
     return 0;
 }
 
@@ -286,7 +281,6 @@ int writeFile(const char* pathname, const char* dirname)
     // Chiudo il file?
     // Scrivo i file espulsi nella cartella passata da linea di comando se necessario
     // Termino
-    printf("Spedisco %s\n", pathname);
     return 0;
 }
 

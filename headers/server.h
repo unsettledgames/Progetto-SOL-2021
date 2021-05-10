@@ -11,13 +11,18 @@
 #include "hashmap.h"
 #include "utility.h"
 #include "errors.h"
+#include "errno.h"
 
 typedef struct serverconfig
 {
     unsigned int n_workers;
     unsigned int tot_space;
     unsigned int max_files;
-    
+
     char socket_name[PATH_MAX];
     char log_path[PATH_MAX];
 }ServerConfig;
+
+ServerConfig config_server();
+
+void* worker(void* args);

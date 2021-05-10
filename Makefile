@@ -15,8 +15,13 @@ DS_FOLDER = sources/data-structures
 
 # Dipendenze di client e server
 client_deps = sources/client.c sources/utility/utility.c libs/libdata-structures.so
-server_deps = sources/server.c libs/libdata-structures.so
+server_deps = sources/server.c sources/utility/utility.c libs/libdata-structures.so
 
+all: client server
+
+# Compilazione del server
+server: $(server_deps)
+	$(CC) $(INCLUDES) $(GENERIC_FLAGS) sources/server.c sources/utility/utility.c -o server -Wl,-rpath,./libs -L ./libs -ldata-structures
 # Compilazione del client
 client: $(client_deps)
 	$(CC) $(INCLUDES) $(GENERIC_FLAGS) sources/client.c sources/utility/utility.c -o client -Wl,-rpath,./libs -L ./libs -ldata-structures
