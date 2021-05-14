@@ -12,9 +12,14 @@
 - Implementare anche un comparatore nei nodi così da evitare problemi di confusione tra chiavi e valori
   nelle code, che tecnicamente hanno solo valori
 
+### COSE PREOCCUPANTI
+- Il client pensa di essersi connesso anche se il server non accetta connessioni
+
 ### ERROR CHECKING
 - Error checking nelle strutture dati
+- Error checking nelle chiamate alle funzioni dei socket e nell'allocazione della memoria
 - Controllare che file e directory di configurazione esistano
+- Magari utilizzare le procedure viste a lezione, sono piuttosto generiche e potrebbero rendere il tutto un po' più ordinato
 
 #### DOCUMENTATION:
 - Commenti alle funzioni nelle strutture dati
@@ -29,3 +34,4 @@
 - Se gli errori vanno gestiti a cascata e basta una exit(EXIT_FAILURE) per gestirli, allora potrebbe 
   essere utile mettere certe funzioni in wrappers che gestiscano gli errori in modo autonomo per rendere
   più pulito il codice.
+- Usare dup2 nel server per redirezionare l'output al file di log se necessario

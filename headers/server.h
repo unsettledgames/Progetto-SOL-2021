@@ -25,11 +25,17 @@ typedef struct serverconfig
     unsigned int max_files;
 
     char socket_name[PATH_MAX];
-    char log_path[PATH_MAX];
+    char log_path[MAX_LOGPATH_LENGTH];
 }ServerConfig;
 
 ServerConfig config_server();
 
 void* worker(void* args);
 
-int initialize_socket(ServerConfig config);
+int initialize_socket();
+
+void accept_connessions(int socket_desc);
+
+int create_log();
+
+void cleanup();

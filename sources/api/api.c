@@ -13,7 +13,7 @@ int openConnection(const char* sockname, int msec, const struct timespec abstime
     struct timespec curr_time;
     clock_gettime(CLOCK_REALTIME, &curr_time);
 
-    strncpy(address.sun_path, sockname, MAX_SOCKET_LEN);
+    strncpy(address.sun_path, sockname, strlen(sockname));
     address.sun_family = AF_UNIX;
 
     // Connessione al server
@@ -27,6 +27,7 @@ int openConnection(const char* sockname, int msec, const struct timespec abstime
 
     if (err != -1)
     {
+        printf("Connesso\n");
         return 0;
     }
 
