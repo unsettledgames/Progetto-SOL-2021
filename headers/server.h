@@ -24,6 +24,7 @@ typedef struct file
     char* content;
     pthread_mutex_t lock;
     int client_descriptor;
+    int last_op;
 }File;
 
 typedef struct serverconfig

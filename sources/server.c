@@ -4,9 +4,10 @@
 FILE* log_file = NULL;
 pthread_mutex_t log_mutex = PTHREAD_MUTEX_INITIALIZER;
 
-// Coda delle richieste con la sua lock
+// Coda delle richieste con la sua lock e variabile condizionale
 List requests;
 pthread_mutex_t queue_mutex = PTHREAD_MUTEX_INITIALIZER;
+pthread_cond_t queue_empty = PTHREAD_COND_INITIALIZER;
 
 // Dimensione dello spazio allocato con la sua lock
 unsigned int allocated_space = 0;
@@ -15,6 +16,11 @@ pthread_mutex_t allocated_space_mutex = PTHREAD_MUTEX_INITIALIZER;
 // Hashmap dei file con la sua lock
 Hashmap files;
 pthread_mutex_t files_mutex = PTHREAD_MUTEX_INITIALIZER;
+
+// Thread ids
+pthread_t* tids;
+
+int debug = 0;
 
 // Configurazione del server, globale per essere vista dalla cleanup
 ServerConfig config;
@@ -29,6 +35,15 @@ int main(int argc, char** argv)
         int socket_desc = initialize_socket();
         create_log();
 
+        // Alloco spazio per i tids
+        tids = malloc(sizeof(pthread_t) * config.n_workers);
+        // Faccio partire i thread workers
+        for (int i=0; i<config.n_workers; i++)
+        {
+            pthread_create(&tids[i], NULL, &worker, NULL);
+        }
+
+        // Comincio ad accettare connessioni
         accept_connessions(socket_desc);
     }
     else
@@ -47,6 +62,10 @@ void accept_connessions(int socket_desc)
     socklen_t client_addr_length = sizeof(client_info);
     int client_fd;
 
+    // Accetto le connessioni ai client
+    // Uso la select per aggiungere le richieste alla coda
+    // Effettuo una signal quando aggiungo una richiesta così qualcuno se ne prenderà cura
+
     while ((client_fd = accept(socket_desc, &client_info, &client_addr_length)))
     {
         ClientRequest to_execute;
@@ -59,6 +78,18 @@ void accept_connessions(int socket_desc)
     }
 }
 
+void* worker(void* args)
+{
+    // Mi metto in attesa sulla variabile condizionale
+        // Prendo una richiesta, la eseguo
+            // Switch case potrebbe essere sufficiente
+        // Mi rimetto in attesa
+        
+    debug++;
+    printf("Salve sono il thread %d e sto consumando 5 tipi di media differenti per evitare che un solo pensiero si formi nella mia testa\n", debug);
+    
+    return NULL;
+}
 
 int create_log()
 {
@@ -140,11 +171,6 @@ void cleanup()
     if (log_file != NULL)
         fclose(log_file);
     printf("CHIAMATA\n");
-}
-
-void* worker(void* args)
-{
-    return NULL;
 }
 
 ServerConfig config_server()
