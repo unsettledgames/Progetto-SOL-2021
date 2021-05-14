@@ -4,6 +4,8 @@ ClientConfig client_configuration;
 
 int main(int argc, char** argv)
 {
+    // Orario corrente per aggiungerci qualche secondo in modo da impostare un limite per il tempo di connessione
+    struct timespec time;
     // Creo l'hashmap che contiene la configurazione del client
     Hashmap config;
     // E la coda di richieste
@@ -24,6 +26,11 @@ int main(int argc, char** argv)
         
         if (errno == 0)
         {
+            // Ottenimento dell'orario, aggiungo 10 secondi
+            clock_gettime(CLOCK_REALTIME, &time);
+            time.tv_sec += 10;
+
+            openConnection(client_configuration.socket_name, 1000, time);
             // Esecuzione delle richieste
             execute_requests(client_configuration, &requests);
         }
@@ -45,7 +52,7 @@ int execute_requests(ClientConfig config, List* requests)
     while (requests->head != NULL)
     {
         // Requests->head contiene la prossima richiesta da eseguire nei dati
-        Request* curr_request = (Request*) requests->head->data;
+        ArgLineRequest* curr_request = (ArgLineRequest*) requests->head->data;
         // Codice operazione
         char op = curr_request->code;
         // Argomenti
@@ -247,68 +254,6 @@ int send_from_dir(const char* dirpath, int* n_files, const char* write_dir)
     }
 }
 
-int openConnection(const char* sockname, int msec, const struct timespec abstime)
-{
-    return 0;
-}
-
-int closeConnection(const char* sockname)
-{
-    return 0;
-}
-
-int openFile(const char* pathname, int flags)
-{
-    return 0;
-}
-
-int readFile(const char* pathname, void** buf, size_t* size)
-{
-    // Apro il file nel server?
-    // Invio la richiesta
-    // Ricevo la risposta
-    // Chiudo il file?
-    // Scrivo il file nella cartella passata da linea di comando se necessario
-    // Termino
-    return 0;
-}
-
-int writeFile(const char* pathname, const char* dirname)
-{
-    // Apro il file nel server?
-    // Invio i dati 
-    // Ricevo i file espulsi
-    // Chiudo il file?
-    // Scrivo i file espulsi nella cartella passata da linea di comando se necessario
-    // Termino
-    return 0;
-}
-
-int appendToFile(const char* pathname, void* buf, size_t size, const char* dirname)
-{
-    return 0;
-}
-
-int lockFile(const char* pathname)
-{
-    return 0;
-}
-
-int unlockFile(const char* pathname)
-{
-    return 0;
-}
-
-int closeFile(const char* pathname)
-{
-    return 0;
-}
-
-int removeFile(const char* pathname)
-{
-    return 0;
-}
-
 char** parse_request_arguments(char* args)
 {
     char** ret;
@@ -423,7 +368,7 @@ int parse_options(Hashmap* config, List* requests, int n_args, char** args)
     char* opt_name = malloc(sizeof(char) * OPT_NAME_LENGTH);
     char* opt_value = malloc(sizeof(char) * OPT_VALUE_LENGTH);
 
-    Request* curr_request = malloc(sizeof(Request));
+    ArgLineRequest* curr_request = malloc(sizeof(ArgLineRequest));
 
     sprintf(opt_value, "%d", 0);
     sprintf(opt_name, "p");
@@ -477,7 +422,7 @@ int parse_options(Hashmap* config, List* requests, int n_args, char** args)
                 // Inserisco la richiesta nella coda delle richieste
                 list_enqueue(requests, (void*)curr_request, opt_name);
                 // Rialloco la struttura
-                curr_request = malloc(sizeof(Request));
+                curr_request = malloc(sizeof(ArgLineRequest));
 
                 used_name = TRUE;
                 break;
@@ -493,7 +438,7 @@ int parse_options(Hashmap* config, List* requests, int n_args, char** args)
                 curr_request->arguments = opt_value;
                 // Metto R in coda come operazione
                 list_enqueue(requests, (void*)curr_request, NULL);
-                curr_request = malloc(sizeof(Request));
+                curr_request = malloc(sizeof(ArgLineRequest));
 
                 used_val = TRUE;
                 break;
@@ -579,7 +524,7 @@ int validate_input(Hashmap config, List requests)
     {
         // Usato per gestire gli errori in strtol
         char* endptr = NULL;
-        Request* R_value = (Request*)list_get(requests, r_index);
+        ArgLineRequest* R_value = (ArgLineRequest*)list_get(requests, r_index);
 
         errno = 0;
         int R = strtol(R_value->arguments, &endptr, 10);
@@ -602,7 +547,7 @@ void print_client_options()
 
 void print_node_request(Node* node)
 {
-    Request* to_print = (Request*)node->data;
+    ArgLineRequest* to_print = (ArgLineRequest*)node->data;
 
     if (to_print->code != 'p')
         printf("Op: %c, args: %s\n", to_print->code, to_print->arguments);
@@ -617,7 +562,7 @@ void print_node_string(Node* node)
 
 void clean_request_node(Node* node)
 {
-    Request* data = (Request*) (node->data);
+    ArgLineRequest* data = (ArgLineRequest*) (node->data);
 
     free((void*)data->arguments);
 }

@@ -18,13 +18,14 @@
 #include "list.h"
 #include "hashmap.h"
 #include "utility.h"
+#include "api.h"
 #include "errors.h"
 
 typedef struct request
 {
     char code;
     char* arguments;
-}Request;
+}ArgLineRequest;
 
 typedef struct clientconfig
 {

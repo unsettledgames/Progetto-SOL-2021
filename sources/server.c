@@ -8,6 +8,9 @@ pthread_mutex_t log_mutex = PTHREAD_MUTEX_INITIALIZER;
 List requests;
 pthread_mutex_t queue_mutex = PTHREAD_MUTEX_INITIALIZER;
 
+// Dimensione dello spazio allocato con la sua lock
+unsigned int allocated_space = 0;
+pthread_mutex_t allocated_space_mutex = PTHREAD_MUTEX_INITIALIZER;
 
 
 int main(int argc, char** argv)
@@ -17,8 +20,7 @@ int main(int argc, char** argv)
 
     if (errno == 0)
     {
-        printf("workers:%d\nspace:%d\nfiles:%d\nsocket:%s\nlog:%s\n", server_config.n_workers,
-        server_config.tot_space, server_config.max_files,server_config.socket_name,server_config.log_path); 
+        initialize_socket(server_config);
     }
     else
     {
@@ -35,6 +37,36 @@ int main(int argc, char** argv)
     // Creo e apro un nuovo file di log chiamato con la data attuale
 
     
+    return 0;
+}
+
+int initialize_socket(ServerConfig config)
+{
+    // Creo il socket
+    int socket_desc = socket(AF_UNIX, SOCK_STREAM, 0);
+    // Indirizzo del socket
+    struct sockaddr_un socket_addr;
+    // Informazioni del client
+    struct sockaddr client_info;
+    socklen_t client_addr_length = sizeof(client_info);
+    int client_fd;
+
+    // Copia dell'indirizzo
+    strncpy(socket_addr.sun_path, config.socket_name, MAX_SOCKET_LEN);
+    socket_addr.sun_family = AF_UNIX;
+
+    if (bind(socket_desc, (struct sockaddr*)&socket_addr, (socklen_t)sizeof(socket_addr)) != 0)
+    {
+        perror("Impossibile collegare il socket all'indirizzo");
+        exit(EXIT_FAILURE);
+    }
+
+    listen(socket_desc, MAX_CONNECTION_QUEUE_SIZE);
+
+    printf("In attesa...\n");
+    client_fd = accept(socket_desc, &client_info, &client_addr_length);
+    printf("Collegato client %d\n", client_fd);
+
     return 0;
 }
 

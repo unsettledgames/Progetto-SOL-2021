@@ -22,3 +22,16 @@ char* get_absolute_path(char* relative_path)
 
     return realpath(relative_path, buffer);
 }
+
+void* _malloc(size_t size)
+{
+    void* ret = malloc(size);
+    
+    if (ret == NULL)
+    {
+        perror("Errore di allocazione della memoria: ");
+        exit(EXIT_FAILURE);
+    }
+
+    return ret;
+}

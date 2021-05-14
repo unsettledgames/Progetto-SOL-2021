@@ -1,3 +1,7 @@
+ #if !defined(ERRORS_H_)
+
+ #define ERRORS_H_
+
 // CLIENT errors
 
 #define INPUT_TYPE_ERROR            -1
@@ -18,3 +22,5 @@
 #define NAN_ERROR       -1
 #define INVALID_NUMBER  -2
 #define FILE_NOT_FOUND  -3
+
+#endif

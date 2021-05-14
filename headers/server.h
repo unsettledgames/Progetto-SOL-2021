@@ -4,7 +4,10 @@
 #include <errno.h>
 #include <dirent.h>
 #include <sys/types.h>
+#include <sys/socket.h>
 #include <sys/stat.h>
+#include <sys/un.h>
+#include <pthread.h>
 
 #include "nodes.h"
 #include "list.h"
@@ -12,6 +15,8 @@
 #include "utility.h"
 #include "errors.h"
 #include "errno.h"
+
+#define MAX_CONNECTION_QUEUE_SIZE   512
 
 typedef struct serverconfig
 {
@@ -26,3 +31,5 @@ typedef struct serverconfig
 ServerConfig config_server();
 
 void* worker(void* args);
+
+int initialize_socket(ServerConfig config);

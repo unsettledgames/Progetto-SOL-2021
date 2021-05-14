@@ -65,7 +65,7 @@ int hashmap_hash(const char* key, int size)
     unsigned long hash = 5381;
     int c;
 
-    while (c = *key++)
+    while ((c = *key++))
         hash = ((hash << 5) + hash) + c; /* hash * 33 + c */
 
     return hash % size;
