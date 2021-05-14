@@ -97,7 +97,14 @@ int execute_requests(ClientConfig config, List* requests)
                     if (real_path == NULL)
                         return FILE_NOT_FOUND;
 
-                    writeFile(real_path, config.expelled_dir);
+                    if (openFile(real_path, 0) != 0)
+                        fprintf(stderr, "Impossibile scrivere il file %s, operazione annullata.\n", real_path);
+                    else
+                    {
+                        writeFile(real_path, config.expelled_dir);
+                        closeFile(real_path);
+                    }
+                    
                     i++;
                 }
 
@@ -115,7 +122,14 @@ int execute_requests(ClientConfig config, List* requests)
                     if (real_path == NULL)
                         return FILE_NOT_FOUND;
 
-                    readFile(real_path, (void**)&file_buffer, &n_to_read);
+                    if (openFile(real_path, 0) != 0)
+                        fprintf(stderr, "Impossibile aprire il file %s, operazione annullata.\n", real_path);
+                    else
+                    {
+                        readFile(real_path, (void**)&file_buffer, &n_to_read);
+                        closeFile(real_path);
+                    }
+
                     i++;
                 }
 

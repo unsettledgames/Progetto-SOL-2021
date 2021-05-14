@@ -16,10 +16,27 @@
 #include "errors.h"
 #include "consts.h"
 
+#define MAX_REQUESTCONTENT_SIZE 1000000
+
+enum Operations 
+{
+    OPENFILE =      0, 
+    READFILE =      1, 
+    WRITEFILE =     2, 
+    APPENDTOFILE =  3, 
+    CLOSEFILE =     4
+};
+
 typedef struct clientrequest
 {
-    char* content;
+    char content[MAX_REQUESTCONTENT_SIZE];
+    unsigned int content_size;
+
+    int flags;
+    time_t timestamp;
     unsigned short op_code;
+
+    int client_descriptor;
 }ClientRequest;
 
 int openConnection(const char* sockname, int msec, const struct timespec abstime);
@@ -33,6 +50,8 @@ int readFile(const char* pathname, void** buf, size_t* size);
 int writeFile(const char* pathname, const char* dirname);
 
 int appendToFile(const char* pathname, void* buf, size_t size, const char* dirname);
+
+int readNFiles(int n, const char* dirname);
 
 int lockFile(const char* pathname);
 

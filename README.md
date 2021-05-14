@@ -13,7 +13,7 @@
   nelle code, che tecnicamente hanno solo valori
 
 ### COSE PREOCCUPANTI
-- Il client pensa di essersi connesso anche se il server non accetta connessioni
+- A un certo punto abstime andrà settato in maniera corretta (parsing di date da linea di comando?)
 
 ### ERROR CHECKING
 - Error checking nelle strutture dati

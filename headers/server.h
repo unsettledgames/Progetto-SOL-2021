@@ -15,8 +15,16 @@
 #include "utility.h"
 #include "errors.h"
 #include "errno.h"
+#include "api.h"
 
 #define MAX_CONNECTION_QUEUE_SIZE   512
+
+typedef struct file 
+{
+    char* content;
+    pthread_mutex_t lock;
+    int client_descriptor;
+}File;
 
 typedef struct serverconfig
 {

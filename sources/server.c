@@ -12,9 +12,12 @@ pthread_mutex_t queue_mutex = PTHREAD_MUTEX_INITIALIZER;
 unsigned int allocated_space = 0;
 pthread_mutex_t allocated_space_mutex = PTHREAD_MUTEX_INITIALIZER;
 
+// Hashmap dei file con la sua lock
+Hashmap files;
+pthread_mutex_t files_mutex = PTHREAD_MUTEX_INITIALIZER;
+
 // Configurazione del server, globale per essere vista dalla cleanup
 ServerConfig config;
-
 
 int main(int argc, char** argv)
 {
@@ -36,6 +39,25 @@ int main(int argc, char** argv)
 
     return 0;
 }
+
+void accept_connessions(int socket_desc)
+{
+    // Informazioni del client
+    struct sockaddr client_info;
+    socklen_t client_addr_length = sizeof(client_info);
+    int client_fd;
+
+    while ((client_fd = accept(socket_desc, &client_info, &client_addr_length)))
+    {
+        ClientRequest to_execute;
+        int ret = 1;
+        read(socket_desc, (void*)&to_execute, sizeof(to_execute));
+        write(client_fd, &ret, sizeof(1));
+
+        printf("Codice richiesta: %d\n", to_execute.op_code);
+    }
+}
+
 
 int create_log()
 {
@@ -77,19 +99,6 @@ int create_log()
     log_file = fopen(log_path, "w");
 
     return 0;
-}
-
-void accept_connessions(int socket_desc)
-{
-    // Informazioni del client
-    struct sockaddr client_info;
-    socklen_t client_addr_length = sizeof(client_info);
-    int client_fd;
-
-    while (client_fd = accept(socket_desc, &client_info, &client_addr_length))
-    {
-        printf("Collegato client %d\n", client_fd);
-    }
 }
 
 int initialize_socket()
