@@ -16,7 +16,7 @@
 #include "errors.h"
 #include "consts.h"
 
-#define MAX_REQUESTCONTENT_SIZE 1000000
+#define MAX_REQUESTCONTENT_SIZE 40000
 
 enum Operations 
 {

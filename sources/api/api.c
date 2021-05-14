@@ -90,7 +90,7 @@ int openFile(const char* pathname, int flags)
 
     time(&timestamp);
 
-    //strcpy(to_send.content, pathname);    
+    strcpy(to_send.content, pathname);
     to_send.content_size = strlen(pathname);
 
     to_send.flags = flags;

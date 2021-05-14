@@ -50,11 +50,12 @@ void accept_connessions(int socket_desc)
     while ((client_fd = accept(socket_desc, &client_info, &client_addr_length)))
     {
         ClientRequest to_execute;
-        int ret = 1;
-        read(socket_desc, (void*)&to_execute, sizeof(to_execute));
-        write(client_fd, &ret, sizeof(1));
+        int ret = 0;
 
-        printf("Codice richiesta: %d\n", to_execute.op_code);
+        read(client_fd, &to_execute, sizeof(to_execute));
+        write(client_fd, &ret, sizeof(ret));
+
+        printf("Codice richiesta: %d\nContent: %s\n", to_execute.op_code, to_execute.content);
     }
 }
 
