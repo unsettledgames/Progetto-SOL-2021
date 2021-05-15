@@ -48,8 +48,6 @@ void* worker(void* args);
 
 int initialize_socket();
 
-void accept_connessions(int socket_desc);
-
 int create_log();
 
 void cleanup();

@@ -97,10 +97,9 @@ int openFile(const char* pathname, int flags)
     to_send.timestamp = timestamp;
     to_send.op_code = OPENFILE;
 
+    printf("scrivo per aprire\n");
     write(socket_fd, &to_send, sizeof(to_send));
     read(socket_fd, &reply, sizeof(reply));
-
-    printf("Risposta alla open: %d\n", reply);
 
     return reply;
 }
