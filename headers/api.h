@@ -18,7 +18,7 @@
 
 #define MAX_REQUESTCONTENT_SIZE 40000
 
-enum Operations 
+enum Operations
 {
     OPENFILE =      0, 
     READFILE =      1, 

@@ -20,6 +20,20 @@ pthread_mutex_t files_mutex = PTHREAD_MUTEX_INITIALIZER;
 // Thread ids
 pthread_t* tids;
 
+// Client connessi al momento e lock
+List client_fds;
+pthread_mutex_t client_fds_lock = PTHREAD_MUTEX_INITIALIZER;
+
+// Descrittore del socket del server
+int socket_desc = -1;
+
+// Desc set e lock
+fd_set desc_set;
+pthread_mutex_t desc_set_lock = PTHREAD_MUTEX_INITIALIZER;
+// Valore massimo tra i fd dei client, usato nella select (con la sua lock)
+int max_fd = -1;
+pthread_mutex_t max_fd_lock = PTHREAD_MUTEX_INITIALIZER;
+
 int debug = 0;
 
 // Configurazione del server, globale per essere vista dalla cleanup
@@ -27,21 +41,44 @@ ServerConfig config;
 
 int main(int argc, char** argv)
 {
+    // Inizializzazione delle strutture dati necessarie
+    list_initialize(&requests, NULL);
+    list_initialize(&client_fds, NULL);
+    hashmap_initialize(&files, 1021, NULL);
+    // Azzero la maschera dei socket da leggere
+    FD_ZERO(&desc_set);
+
     // Parsing della configurazione del server
     config = config_server();
 
     if (errno == 0)
     {
-        int socket_desc = initialize_socket();
+        // Tid del thread che gestisce le connessioni
+        pthread_t connession_handler_tid = -1;
+        // Tid del thread che smista le richieste
+        pthread_t dispatcher_tid = -1;
+
+        socket_desc = initialize_socket();
         create_log();
 
         // Alloco spazio per i tids
         tids = malloc(sizeof(pthread_t) * config.n_workers);
+
+        // Faccio partire il thread master, che accetta le connessioni
+        pthread_create(&connession_handler_tid, NULL, &connession_handler, NULL);
+        // Faccio partire il dispatcher, che riceve le richieste e le aggiunge in coda
+        pthread_create(&dispatcher_tid, NULL, &dispatcher, NULL);
+
         // Faccio partire i thread workers
         for (int i=0; i<config.n_workers; i++)
         {
             pthread_create(&tids[i], NULL, &worker, NULL);
         }
+
+        // Aspetto che il master finisca
+        pthread_join(connession_handler_tid, NULL);
+        // Aspetto che il dispatcher finisca
+        pthread_join(dispatcher_tid, NULL);
 
         // Comincio ad accettare connessioni
         accept_connessions(socket_desc);
@@ -57,25 +94,121 @@ int main(int argc, char** argv)
 
 void accept_connessions(int socket_desc)
 {
-    // Informazioni del client
-    struct sockaddr client_info;
-    socklen_t client_addr_length = sizeof(client_info);
-    int client_fd;
-
     // Accetto le connessioni ai client
     // Uso la select per aggiungere le richieste alla coda
     // Effettuo una signal quando aggiungo una richiesta così qualcuno se ne prenderà cura
+    /*read(client_fd, &to_execute, sizeof(to_execute));
+    write(client_fd, &ret, sizeof(ret));*/
+}
 
-    while ((client_fd = accept(socket_desc, &client_info, &client_addr_length)))
+void* dispatcher(void* args)
+{
+    // Read set, è locale e serve solo al dispatcher
+    fd_set read_set;
+
+    while (TRUE)
     {
-        ClientRequest to_execute;
-        int ret = 0;
+        // Copio il set totale
+        pthread_mutex_lock(&desc_set_lock);
+        read_set = desc_set;
+        pthread_mutex_unlock(&desc_set_lock);
 
-        read(client_fd, &to_execute, sizeof(to_execute));
-        write(client_fd, &ret, sizeof(ret));
+        // Calcolo il numero attuale di connessioni attive
+        pthread_mutex_lock(&client_fds_lock);
+        int list_len = client_fds.length;
+        pthread_mutex_unlock(&client_fds_lock);
 
-        printf("Codice richiesta: %d\nContent: %s\n", to_execute.op_code, to_execute.content);
+        // Salvo il numero massimo dei fd
+        pthread_mutex_lock(&max_fd_lock);
+        int loc_max_fd = max_fd;
+        pthread_mutex_unlock(&max_fd_lock);
+
+        if (loc_max_fd > 0)
+        {
+            printf("Ok, %d\n", loc_max_fd);
+            // Uso la select per gestire le connessioni che necessitano di attenzione
+            if (select(loc_max_fd + 1, &read_set, NULL, NULL, NULL) == -1)
+            {
+                perror("Errore durante la select");
+                exit(EXIT_FAILURE);
+            }
+            else
+            {
+                printf("eccomi\n");
+                // Ciclo nei set e verifico quali sono pronti
+                for (int i=0; i<list_len; i++)
+                {
+                    // Ottengo il fd corrente
+                    pthread_mutex_lock(&client_fds_lock);
+                    int curr_fd = *((int*)list_get(client_fds, i));
+                    pthread_mutex_unlock(&client_fds_lock);
+
+                    // Controllo che sia settato e che abbia qualcosa da leggere
+                    pthread_mutex_lock(&desc_set_lock);
+
+                    printf("ciclo\n");
+
+                    if (FD_ISSET(curr_fd, &read_set))
+                    {
+                        // Leggo dal client e aggiungo alla coda delle richieste
+                        ClientRequest request;
+                        if (read(curr_fd, &request, sizeof(request)) == -1)
+                            perror("Errore nella lettura della richiesta del client");
+                        else
+                        {
+                            printf("Codice richiesta: %d\nContenuto: %s\n", request.op_code, request.content);
+                        }
+                        printf("%d e' settato\n", curr_fd);
+                    }
+                    pthread_mutex_unlock(&desc_set_lock);
+                }
+            }
+        }
     }
+
+    return NULL;
+}
+
+void* connession_handler(void* args)
+{
+    // Informazioni del client
+    struct sockaddr client_info;
+    socklen_t client_addr_length = sizeof(client_info);
+    // Dati dei nodi delle lsite
+    int* client_fd = malloc(sizeof(int));
+    char* key = malloc(sizeof(char) * 20);
+
+    while (TRUE)
+    {
+        // Attendo una richiesta di connessione
+        if ((*client_fd = accept(socket_desc, &client_info, &client_addr_length)) > 0)
+        {
+            // Aggiorno il massimo fd se necessario
+            pthread_mutex_lock(&max_fd_lock);
+            if (max_fd < *client_fd)
+                max_fd = *client_fd;
+            pthread_mutex_unlock(&max_fd_lock);
+            // Uso come chiave l'fd del thread
+            sprintf(key, "%d", *client_fd);
+
+            // Aggiungo l'fd alla lista, accedo in mutua esclusione perché potrei ricevere una 
+            // richiesta di disconnessione che modifica la lista
+            pthread_mutex_lock(&client_fds_lock);
+            list_push(&client_fds, client_fd, key);
+            pthread_mutex_unlock(&client_fds_lock);
+
+            // Aggiungo il descrittore al read set
+            pthread_mutex_lock(&desc_set_lock);
+            FD_SET(*client_fd, &desc_set);
+            pthread_mutex_unlock(&desc_set_lock);
+
+            // Rialloco così i dati puntano a una locazione differente
+            client_fd = malloc(sizeof(int));
+            key = malloc(sizeof(char) * 20);
+        }
+    }
+
+    return NULL;
 }
 
 void* worker(void* args)

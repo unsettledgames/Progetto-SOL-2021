@@ -7,6 +7,7 @@
 #include <sys/socket.h>
 #include <sys/stat.h>
 #include <sys/un.h>
+#include <sys/select.h>
 #include <pthread.h>
 
 #include "nodes.h"
@@ -38,6 +39,10 @@ typedef struct serverconfig
 }ServerConfig;
 
 ServerConfig config_server();
+
+void* connession_handler(void* args);
+
+void* dispatcher(void* args);
 
 void* worker(void* args);
 
