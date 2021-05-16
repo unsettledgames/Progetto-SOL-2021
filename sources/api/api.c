@@ -79,7 +79,25 @@ int openConnection(const char* sockname, int msec, const struct timespec abstime
 
 int closeConnection(const char* sockname)
 {
-    return 0;
+    ClientRequest to_send;
+    time_t timestamp;
+    int reply;
+
+    time(&timestamp);
+    to_send.op_code = CLOSECONNECTION;
+    to_send.timestamp = timestamp;
+
+    // Invio la richiesta
+    write(socket_fd, &to_send, sizeof(to_send));
+    // Ricevo la risposta
+    read(socket_fd, &reply, sizeof(reply));
+
+    // Chiudo il socket
+    close(socket_fd);
+
+    printf("chiuso\n");
+
+    return reply;
 }
 
 int openFile(const char* pathname, int flags)
@@ -97,10 +115,10 @@ int openFile(const char* pathname, int flags)
     to_send.timestamp = timestamp;
     to_send.op_code = OPENFILE;
 
-    printf("scrivo per aprire\n");
     write(socket_fd, &to_send, sizeof(to_send));
     read(socket_fd, &reply, sizeof(reply));
 
+    printf("Risposta: %d\n", reply);
     return reply;
 }
 

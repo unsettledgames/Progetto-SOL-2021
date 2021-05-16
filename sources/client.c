@@ -101,6 +101,7 @@ int execute_requests(ClientConfig config, List* requests)
                         fprintf(stderr, "Impossibile scrivere il file %s, operazione annullata.\n", real_path);
                     else
                     {
+                        closeConnection("sas");
                         writeFile(real_path, config.expelled_dir);
                         closeFile(real_path);
                     }

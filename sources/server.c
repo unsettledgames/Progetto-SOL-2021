@@ -97,10 +97,6 @@ void* dispatcher(void* args)
     while (TRUE)
     {
         FD_ZERO(&read_set);
-        // Copio il set totale
-        pthread_mutex_lock(&desc_set_lock);
-        read_set = desc_set;
-        pthread_mutex_unlock(&desc_set_lock);
 
         // Calcolo il numero attuale di connessioni attive
         pthread_mutex_lock(&client_fds_lock);
@@ -112,14 +108,13 @@ void* dispatcher(void* args)
         int loc_max_fd = max_fd;
         pthread_mutex_unlock(&max_fd_lock);
 
-        if (FD_ISSET(loc_max_fd, &read_set))
-            printf("OKI!\n");
-        else
-            printf("non oki\n");
-
         if (loc_max_fd > 0)
         {
-            printf("Ok, %d\n", loc_max_fd);
+            // Copio il set totale
+            pthread_mutex_lock(&desc_set_lock);
+            read_set = desc_set;
+            pthread_mutex_unlock(&desc_set_lock);
+            
             // Uso la select per gestire le connessioni che necessitano di attenzione
             if (select(loc_max_fd + 1, &read_set, NULL, NULL, NULL) == -1)
             {
@@ -127,7 +122,6 @@ void* dispatcher(void* args)
                 exit(EXIT_FAILURE);
             }
 
-            printf("eccomi\n");
             // Ciclo nei set e verifico quali sono pronti
             for (int i=0; i<list_len; i++)
             {
@@ -137,10 +131,6 @@ void* dispatcher(void* args)
                 pthread_mutex_unlock(&client_fds_lock);
 
                 // Controllo che sia settato e che abbia qualcosa da leggere
-                pthread_mutex_lock(&desc_set_lock);
-
-                printf("ciclo\n");
-
                 if (FD_ISSET(curr_fd, &read_set))
                 {
                     // Leggo dal client e aggiungo alla coda delle richieste
@@ -150,10 +140,23 @@ void* dispatcher(void* args)
                     else
                     {
                         printf("Codice richiesta: %d\nContenuto: %s\n", request.op_code, request.content);
+                        if (request.op_code == CLOSECONNECTION)
+                        {
+                            pthread_mutex_lock(&client_fds_lock);
+                            list_remove_by_index(&client_fds, i);
+                            pthread_mutex_unlock(&client_fds_lock);
+
+                            int to_send = 0;
+                            write(curr_fd, &to_send, sizeof(to_send));
+                        }
+                        else if (request.op_code == OPENFILE)
+                        {
+                            int to_send = 0;
+                            write(curr_fd, &to_send, sizeof(to_send));
+                        }
                     }
                     printf("%d e' settato\n", curr_fd);
                 }
-                pthread_mutex_unlock(&desc_set_lock);
             }
         }
     }
@@ -175,11 +178,6 @@ void* connession_handler(void* args)
         // Attendo una richiesta di connessione
         if ((*client_fd = accept(socket_desc, &client_info, &client_addr_length)) > 0)
         {
-            // Aggiorno il massimo fd se necessario
-            pthread_mutex_lock(&max_fd_lock);
-            if (max_fd < *client_fd)
-                max_fd = *client_fd;
-            pthread_mutex_unlock(&max_fd_lock);
             // Uso come chiave l'fd del thread
             sprintf(key, "%d", *client_fd);
 
@@ -192,9 +190,13 @@ void* connession_handler(void* args)
             // Aggiungo il descrittore al read set
             pthread_mutex_lock(&desc_set_lock);
             FD_SET(*client_fd, &desc_set);
-            if (FD_ISSET(*client_fd, &desc_set))
-                printf("Va bien %d\n", *client_fd);
             pthread_mutex_unlock(&desc_set_lock);
+
+            // Aggiorno il massimo fd se necessario
+            pthread_mutex_lock(&max_fd_lock);
+            if (max_fd < *client_fd)
+                max_fd = *client_fd;
+            pthread_mutex_unlock(&max_fd_lock);
 
             // Rialloco così i dati puntano a una locazione differente
             client_fd = malloc(sizeof(int));

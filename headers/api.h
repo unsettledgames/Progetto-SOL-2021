@@ -20,11 +20,12 @@
 
 enum Operations
 {
-    OPENFILE =      0, 
-    READFILE =      1, 
-    WRITEFILE =     2, 
-    APPENDTOFILE =  3, 
-    CLOSEFILE =     4
+    OPENFILE =          0, 
+    READFILE =          1, 
+    WRITEFILE =         2, 
+    APPENDTOFILE =      3, 
+    CLOSEFILE =         4,
+    CLOSECONNECTION =   5
 };
 
 typedef struct clientrequest
