@@ -95,13 +95,12 @@ int execute_requests(ClientConfig config, List* requests)
                     char* real_path = get_absolute_path(args[i]);
 
                     if (real_path == NULL)
-                        return FILE_NOT_FOUND;
-
-                    if (openFile(real_path, 0) != 0)
+                        perror("Impossibile trovare il percorso del file");
+                    else if (openFile(real_path, 0) != 0)
                         fprintf(stderr, "Impossibile scrivere il file %s, operazione annullata.\n", real_path);
                     else
                     {
-                        closeConnection("sas");
+                        closeConnection("LSOfilestorage.sk");
                         writeFile(real_path, config.expelled_dir);
                         closeFile(real_path);
                     }

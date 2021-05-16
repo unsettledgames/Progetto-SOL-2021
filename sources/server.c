@@ -131,15 +131,17 @@ void* dispatcher(void* args)
                 pthread_mutex_unlock(&client_fds_lock);
 
                 // Controllo che sia settato e che abbia qualcosa da leggere
-                if (FD_ISSET(curr_fd, &read_set))
+                if (curr_fd <= loc_max_fd && FD_ISSET(curr_fd, &read_set))
                 {
                     // Leggo dal client e aggiungo alla coda delle richieste
                     ClientRequest request;
-                    if (read(curr_fd, &request, sizeof(request)) == -1)
+                    int read_size = read(curr_fd, &request, sizeof(request));
+                    if (read_size == -1)
                         perror("Errore nella lettura della richiesta del client");
                     else
                     {
-                        printf("Codice richiesta: %d\nContenuto: %s\n", request.op_code, request.content);
+                        printf("FD: %d\n Codice richiesta: %d\nContenuto: %s\n", curr_fd, request.op_code, request.content);
+                        perror("error");
                         if (request.op_code == CLOSECONNECTION)
                         {
                             pthread_mutex_lock(&client_fds_lock);

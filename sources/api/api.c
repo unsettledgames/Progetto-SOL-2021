@@ -73,7 +73,7 @@ int openConnection(const char* sockname, int msec, const struct timespec abstime
         return 0;
     }
 
-    perror("Impossibile connettersi al server: ");
+    perror("Impossibile connettersi al server");
     exit(EXIT_FAILURE);
 }
 
@@ -118,7 +118,6 @@ int openFile(const char* pathname, int flags)
     write(socket_fd, &to_send, sizeof(to_send));
     read(socket_fd, &reply, sizeof(reply));
 
-    printf("Risposta: %d\n", reply);
     return reply;
 }
 
