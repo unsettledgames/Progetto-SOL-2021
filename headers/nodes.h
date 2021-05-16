@@ -16,6 +16,6 @@ typedef struct node
 
 Node* create_node(void* to_set, const char* key);
 
-void clean_node(Node* to_clean);
+void clean_node(Node* to_clean, int clean_data);
 
 #endif

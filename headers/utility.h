@@ -15,7 +15,7 @@ int string_to_int(char* string, int positive_constraint);
 
 char* get_absolute_path(char* relative_path);
 
-void* _malloc(size_t size);
+void* my_malloc(size_t size);
 
 
 #endif

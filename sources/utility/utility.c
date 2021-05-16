@@ -23,7 +23,7 @@ char* get_absolute_path(char* relative_path)
     return realpath(relative_path, buffer);
 }
 
-void* _malloc(size_t size)
+void* my_malloc(size_t size)
 {
     void* ret = malloc(size);
     

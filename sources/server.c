@@ -91,26 +91,62 @@ int main(int argc, char** argv)
 
 void* worker(void* args)
 {
-    // Mi metto in attesa sulla variabile condizionale
-        // Prendo una richiesta, la eseguo
-            // Switch case potrebbe essere sufficiente
-        // Mi rimetto in attesa
-    /*
-    if (request.op_code == CLOSECONNECTION)
-    {
-        pthread_mutex_lock(&client_fds_lock);
-        list_remove_by_index(&client_fds, i);
-        pthread_mutex_unlock(&client_fds_lock);
+    // Salvataggio della richiesta
+    ClientRequest request;
 
-        int to_send = 0;
-        write(curr_fd, &to_send, sizeof(to_send));
-    }
-    else if (request.op_code == OPENFILE)
+    while (TRUE)
     {
+        // Return value
         int to_send = 0;
-        write(curr_fd, &to_send, sizeof(to_send));
+        // Mi metto in attesa sulla variabile condizionale
+        pthread_mutex_lock(&queue_mutex);
+        while (requests.length <= 0)
+            pthread_cond_wait(&queue_not_empty, &queue_mutex);
+        // Se sono arrivato fin qui, ho una richiesta da elaborare
+        ClientRequest* to_free = (ClientRequest*)list_dequeue(&requests);
+        // Copio la richiesta
+        memcpy(&request, to_free, sizeof(request));
+        // Libero la memoria allocata
+        free(to_free);
+        // Sblocco la coda
+        pthread_mutex_unlock(&queue_mutex);
+
+        // Eseguo la richiesta
+        switch (request.op_code)
+        {
+            case OPENFILE:;
+                write(request.client_descriptor, &to_send, sizeof(to_send));
+                break;
+            case READFILE:
+                break;
+            case WRITEFILE:
+                break;
+            case APPENDTOFILE:
+                break;
+            case CLOSEFILE:
+                break;
+            case CLOSECONNECTION:;
+                // Descrittore in formato di stringa per poterlo rimuovere
+                char desc_string[20];
+                sprintf(desc_string, "%d", request.client_descriptor);
+
+                // Rimuovo il descrittore dalla lista dei descrittori attivi
+                pthread_mutex_lock(&client_fds_lock);
+                list_remove_by_key(&client_fds, desc_string);
+                pthread_mutex_unlock(&client_fds_lock);
+
+                // Rimuovo il descrittore dal set
+                pthread_mutex_lock(&desc_set_lock);
+                FD_CLR(request.client_descriptor, &desc_set);
+                pthread_mutex_unlock(&desc_set_lock);
+                
+                write(request.client_descriptor, &to_send, sizeof(to_send));
+                break;
+            default:
+                fprintf(stderr, "Codice richiesta %d non supportato dal server\n", request.op_code);
+                break;
+        }
     }
-    */
         
     debug++;
     printf("Salve sono il thread %d e sto consumando 5 tipi di media differenti per evitare che un solo pensiero si formi nella mia testa\n", debug);
@@ -165,7 +201,7 @@ void* dispatcher(void* args)
                     // Puntatore per salvare la richiesta: è allocata sullo heap perché altrimenti
                     // la lista ne perderebbe traccia una volta usciti da questa funzione
                     ClientRequest* request = malloc(sizeof(ClientRequest));
-                    // Dimensine dei dati letti per controllare errori
+                    // Dimensione dei dati letti per controllare errori
                     int read_size = read(curr_fd, request, sizeof(request));
 
                     if (read_size == -1)

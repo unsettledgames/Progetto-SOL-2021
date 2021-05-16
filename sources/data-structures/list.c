@@ -46,7 +46,7 @@ void list_clean(List list, void (*cleaner)(Node*))
 
         if (cleaner != NULL)
             cleaner(prev);
-        clean_node(prev);
+        clean_node(prev, TRUE);
     }
 }
 
@@ -118,7 +118,7 @@ void* list_remove_by_index(List* list, unsigned int index)
     // Aggiusto i puntatori
     prev->next = curr->next;
     // Pulisco il nodo
-    clean_node(curr);
+    clean_node(curr, TRUE);
     // Decremento la lunghezza
     list->length--;
 
@@ -148,7 +148,7 @@ void* list_remove_by_key(List* list, const char* key)
     else
         prev->next = curr->next;
     // Pulisco il nodo
-    clean_node(curr);
+    clean_node(curr, TRUE);
     // Decremento la lunghezza
     list->length--;
 
@@ -176,13 +176,13 @@ int list_insert(List* list, unsigned int index, void* data, const char* key)
     // Caso limite, inserisco in testa e riciclo la push
     if (index == 0)
     {
-        clean_node(to_insert);
+        clean_node(to_insert, TRUE);
         return list_push(list, data, key);
     }
     // Caso limite, inserisco in coda e riciclo l'enqueue
     else if (index == list->length)
     {
-        clean_node(to_insert);
+        clean_node(to_insert, TRUE);
         return list_enqueue(list, data, key);
     }
 
@@ -242,7 +242,7 @@ void* list_pop(List* list)
         list->length--;
         // Pulisci il vecchio nodo
         data = curr->data;
-        clean_node(curr);
+        clean_node(curr, FALSE);
 
         return data;
     }

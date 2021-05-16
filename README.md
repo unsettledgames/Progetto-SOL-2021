@@ -2,9 +2,8 @@
 
 ## TODO LIST
 
+- Risveglio dei thread quando c'è una richiesta in coda
 - Esecuzione richieste client
-- Invio richieste al server
-- Attesa della risposta
 - Chiusura e pulizia
 
 ### SHOULD HAVE
@@ -28,7 +27,6 @@
 - Limiti alle strutture dati o differenziazione: se creo una lista per farci una coda non devo   poter
   usare le operazioni dello stack. Basterebbe un enum che dice di che tipo specifico è la lista, oppure
   si potrebbero suddividere le strutture, ma mi sembra fuori dallo scopo del progetto
-- Le liste ammettono copie? Dovrei implementare una contains ed evitare copie probabilmente
 - Dividere funzioni che svolgono compiti relativi a domini simili in librerie
 - Sarebbe probabilmente più pulito avere una libreria dedicata alla gestione degli errori
 - Se gli errori vanno gestiti a cascata e basta una exit(EXIT_FAILURE) per gestirli, allora potrebbe 
