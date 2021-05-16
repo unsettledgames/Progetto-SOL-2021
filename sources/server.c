@@ -7,7 +7,7 @@ pthread_mutex_t log_mutex = PTHREAD_MUTEX_INITIALIZER;
 // Coda delle richieste con la sua lock e variabile condizionale
 List requests;
 pthread_mutex_t queue_mutex = PTHREAD_MUTEX_INITIALIZER;
-pthread_cond_t queue_empty = PTHREAD_COND_INITIALIZER;
+pthread_cond_t queue_not_empty = PTHREAD_COND_INITIALIZER;
 
 // Dimensione dello spazio allocato con la sua lock
 unsigned int allocated_space = 0;
@@ -89,6 +89,35 @@ int main(int argc, char** argv)
     return 0;
 }
 
+void* worker(void* args)
+{
+    // Mi metto in attesa sulla variabile condizionale
+        // Prendo una richiesta, la eseguo
+            // Switch case potrebbe essere sufficiente
+        // Mi rimetto in attesa
+    /*
+    if (request.op_code == CLOSECONNECTION)
+    {
+        pthread_mutex_lock(&client_fds_lock);
+        list_remove_by_index(&client_fds, i);
+        pthread_mutex_unlock(&client_fds_lock);
+
+        int to_send = 0;
+        write(curr_fd, &to_send, sizeof(to_send));
+    }
+    else if (request.op_code == OPENFILE)
+    {
+        int to_send = 0;
+        write(curr_fd, &to_send, sizeof(to_send));
+    }
+    */
+        
+    debug++;
+    printf("Salve sono il thread %d e sto consumando 5 tipi di media differenti per evitare che un solo pensiero si formi nella mia testa\n", debug);
+    
+    return NULL;
+}
+
 void* dispatcher(void* args)
 {
     // Read set, è locale e serve solo al dispatcher
@@ -133,31 +162,26 @@ void* dispatcher(void* args)
                 // Controllo che sia settato e che abbia qualcosa da leggere
                 if (curr_fd <= loc_max_fd && FD_ISSET(curr_fd, &read_set))
                 {
-                    // Leggo dal client e aggiungo alla coda delle richieste
-                    ClientRequest request;
-                    int read_size = read(curr_fd, &request, sizeof(request));
+                    // Puntatore per salvare la richiesta: è allocata sullo heap perché altrimenti
+                    // la lista ne perderebbe traccia una volta usciti da questa funzione
+                    ClientRequest* request = malloc(sizeof(ClientRequest));
+                    // Dimensine dei dati letti per controllare errori
+                    int read_size = read(curr_fd, request, sizeof(request));
+
                     if (read_size == -1)
                         perror("Errore nella lettura della richiesta del client");
                     else
                     {
-                        printf("FD: %d\n Codice richiesta: %d\nContenuto: %s\n", curr_fd, request.op_code, request.content);
-                        perror("error");
-                        if (request.op_code == CLOSECONNECTION)
-                        {
-                            pthread_mutex_lock(&client_fds_lock);
-                            list_remove_by_index(&client_fds, i);
-                            pthread_mutex_unlock(&client_fds_lock);
+                        // Aggiungo il file descriptor del clientalla richiesta ricevuta
+                        request->client_descriptor = curr_fd;
+                        // La aggiungo alla coda delle richieste
+                        pthread_mutex_lock(&queue_mutex);
+                        list_enqueue(&requests, request, NULL);
+                        pthread_mutex_unlock(&queue_mutex);
 
-                            int to_send = 0;
-                            write(curr_fd, &to_send, sizeof(to_send));
-                        }
-                        else if (request.op_code == OPENFILE)
-                        {
-                            int to_send = 0;
-                            write(curr_fd, &to_send, sizeof(to_send));
-                        }
+                        // Segnalo che la coda delle richieste ha un elemento da elaborare
+                        pthread_cond_signal(&queue_not_empty);
                     }
-                    printf("%d e' settato\n", curr_fd);
                 }
             }
         }
@@ -206,19 +230,6 @@ void* connession_handler(void* args)
         }
     }
 
-    return NULL;
-}
-
-void* worker(void* args)
-{
-    // Mi metto in attesa sulla variabile condizionale
-        // Prendo una richiesta, la eseguo
-            // Switch case potrebbe essere sufficiente
-        // Mi rimetto in attesa
-        
-    debug++;
-    printf("Salve sono il thread %d e sto consumando 5 tipi di media differenti per evitare che un solo pensiero si formi nella mia testa\n", debug);
-    
     return NULL;
 }
 
