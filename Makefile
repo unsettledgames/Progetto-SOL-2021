@@ -39,10 +39,12 @@ $(O_FOLDER)/hashmap.o:
 	$(CC) $(INCLUDES) $(GENERIC_FLAGS) $(DS_FOLDER)/hashmap.c -c -fPIC -o $@
 
 # Make della libreria delle api
-libs/libapi.so: $(O_FOLDER)/api.o
+libs/libapi.so: $(O_FOLDER)/api.o $(O_FOLDER)/utility.o
 	$(CC) -shared -o libs/libapi.so $^
 $(O_FOLDER)/api.o:
 	$(CC) $(INCLUDES) $(GENERIC_FLAGS) $(API_FOLDER)/api.c -c -fPIC -o $@
+$(O_FOLDER)/utility.o:
+	$(CC) $(INCLUDES) sources/utility/utility.c -c -fPIC -o $@
 
 # Make dei test, che hanno bisogno sia del client che del server
 #test1: client server

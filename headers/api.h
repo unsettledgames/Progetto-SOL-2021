@@ -15,6 +15,7 @@
 
 #include "errors.h"
 #include "consts.h"
+#include "utility.h"
 
 #define MAX_REQUESTCONTENT_SIZE 40000
 

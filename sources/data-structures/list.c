@@ -53,7 +53,7 @@ void list_clean(List list, void (*cleaner)(Node*))
 void list_initialize(List* list, void (*printer)(Node*))
 {
     list->head = NULL;
-    list->tail = list->head;
+    list->tail = NULL;
     list->length = 0;
     list->printer = printer;
 }
@@ -66,14 +66,16 @@ int list_enqueue(List* list, void* data, const char* key)
     // Se non ho la coda, non ho mai inserito niente, quindi la lista è vuota
     if (list->tail == NULL)
     {
+        printf("\nera vuota\n");
         list->head = to_add;
         list->tail = list->head;
     }
     else
     {
+        printf("\nnon era vuota %d\n", list->length);
         // Lo metto in fondo e aggiorno la coda
         list->tail->next = to_add;
-        list->tail = list->tail->next;        
+        list->tail = list->tail->next; 
     }
 
     // La lunghezza della lista è aumentata
@@ -236,12 +238,19 @@ void* list_pop(List* list)
     // Se la lista ha una testa (cioè se contiene elementi)
     if (list->head != NULL)
     {
+        // Salvo i dati
+        data = curr->data;
         // Imposta la nuova testa
         list->head = curr->next;
         // Riduci la lunghezza della lista
         list->length--;
-        // Pulisci il vecchio nodo
-        data = curr->data;
+
+        if (list->length == 0)
+        {
+            list->tail = NULL;
+            printf("Imposto a NULL\n");
+        }
+        
         clean_node(curr, FALSE);
 
         return data;
@@ -310,7 +319,11 @@ void print_list(List to_print, char* name)
     if (to_print.head != NULL)
         printf("Printing list %s with size %d\n", name, to_print.length);
     else
+    {
+        printf("List %s is empty (size = %d)\n", name, to_print.length);
         return;
+    }
+        
 
     Node* curr = to_print.head;
 

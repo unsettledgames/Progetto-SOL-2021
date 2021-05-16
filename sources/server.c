@@ -42,7 +42,7 @@ ServerConfig config;
 int main(int argc, char** argv)
 {
     // Inizializzazione delle strutture dati necessarie
-    list_initialize(&requests, NULL);
+    list_initialize(&requests, print_request_node);
     list_initialize(&client_fds, NULL);
     hashmap_initialize(&files, 1021, NULL);
     // Azzero la maschera dei socket da leggere
@@ -102,8 +102,18 @@ void* worker(void* args)
         pthread_mutex_lock(&queue_mutex);
         while (requests.length <= 0)
             pthread_cond_wait(&queue_not_empty, &queue_mutex);
+
+        print_list(requests, "Coda richieste quando mi sveglio");
+            
         // Se sono arrivato fin qui, ho una richiesta da elaborare
         ClientRequest* to_free = (ClientRequest*)list_dequeue(&requests);
+
+        if (requests.tail == NULL)
+            printf ("Era null\n");
+        else
+            printf("maremma\n");
+
+        print_list(requests, "Coda richieste quando ho estratto");
         // Copio la richiesta
         memcpy(&request, to_free, sizeof(request));
         // Libero la memoria allocata
@@ -146,6 +156,8 @@ void* worker(void* args)
                 fprintf(stderr, "Codice richiesta %d non supportato dal server\n", request.op_code);
                 break;
         }
+
+        print_list(requests, "Coda richieste quando ho finito");
     }
         
     debug++;
@@ -202,7 +214,7 @@ void* dispatcher(void* args)
                     // la lista ne perderebbe traccia una volta usciti da questa funzione
                     ClientRequest* request = malloc(sizeof(ClientRequest));
                     // Dimensione dei dati letti per controllare errori
-                    int read_size = read(curr_fd, request, sizeof(request));
+                    int read_size = read(curr_fd, request, sizeof(*request));
 
                     if (read_size == -1)
                         perror("Errore nella lettura della richiesta del client");
@@ -212,7 +224,10 @@ void* dispatcher(void* args)
                         request->client_descriptor = curr_fd;
                         // La aggiungo alla coda delle richieste
                         pthread_mutex_lock(&queue_mutex);
+                        printf("Letti: %d, richiesta ricevuta: %d | %s\n", read_size, request->op_code, request->content);
                         list_enqueue(&requests, request, NULL);
+
+                        print_list(requests, "Coda richieste quando ho aggiunto");
                         pthread_mutex_unlock(&queue_mutex);
 
                         // Segnalo che la coda delle richieste ha un elemento da elaborare
@@ -454,4 +469,11 @@ ServerConfig config_server()
         fclose(config_file);
         return ret;
     }   
+}
+
+void print_request_node(Node* to_print)
+{
+    ClientRequest r = *(ClientRequest*)to_print->data;
+
+    printf("Op: %d\nContent:%s\n\n", r.op_code, r.content);
 }

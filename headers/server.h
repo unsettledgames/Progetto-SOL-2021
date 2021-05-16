@@ -51,3 +51,5 @@ int initialize_socket();
 int create_log();
 
 void cleanup();
+
+void print_request_node(Node* to_print);

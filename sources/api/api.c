@@ -88,9 +88,9 @@ int closeConnection(const char* sockname)
     to_send.timestamp = timestamp;
 
     // Invio la richiesta
-    write(socket_fd, &to_send, sizeof(to_send));
+    writen(socket_fd, &to_send, sizeof(to_send));
     // Ricevo la risposta
-    read(socket_fd, &reply, sizeof(reply));
+    readn(socket_fd, &reply, sizeof(reply));
 
     // Chiudo il socket
     close(socket_fd);
@@ -115,8 +115,8 @@ int openFile(const char* pathname, int flags)
     to_send.timestamp = timestamp;
     to_send.op_code = OPENFILE;
 
-    write(socket_fd, &to_send, sizeof(to_send));
-    read(socket_fd, &reply, sizeof(reply));
+    writen(socket_fd, &to_send, sizeof(to_send));
+    readn(socket_fd, &reply, sizeof(reply));
 
     return reply;
 }
