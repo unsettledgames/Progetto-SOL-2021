@@ -66,13 +66,11 @@ int list_enqueue(List* list, void* data, const char* key)
     // Se non ho la coda, non ho mai inserito niente, quindi la lista è vuota
     if (list->tail == NULL)
     {
-        printf("\nera vuota\n");
         list->head = to_add;
         list->tail = list->head;
     }
     else
     {
-        printf("\nnon era vuota %d\n", list->length);
         // Lo metto in fondo e aggiorno la coda
         list->tail->next = to_add;
         list->tail = list->tail->next; 
@@ -246,10 +244,7 @@ void* list_pop(List* list)
         list->length--;
 
         if (list->length == 0)
-        {
             list->tail = NULL;
-            printf("Imposto a NULL\n");
-        }
         
         clean_node(curr, FALSE);
 

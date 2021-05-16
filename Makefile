@@ -3,7 +3,7 @@
 
 # Opzioni di compilazione
 CC = gcc
-GENERIC_FLAGS = -Wall -pedantic -lpthread
+GENERIC_FLAGS = -Wall -pedantic -lpthread -g
 THREAD_FLAGS = -lpthread
 INCLUDES = -I./headers
 

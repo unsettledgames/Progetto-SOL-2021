@@ -66,19 +66,22 @@ int main(int argc, char** argv)
 
         // Faccio partire il thread master, che accetta le connessioni
         pthread_create(&connession_handler_tid, NULL, &connession_handler, NULL);
+        printf("Connession: %ld\n", connession_handler_tid);
         // Faccio partire il dispatcher, che riceve le richieste e le aggiunge in coda
         pthread_create(&dispatcher_tid, NULL, &dispatcher, NULL);
+        printf("Dispatcher: %ld\n", dispatcher_tid);
 
         // Faccio partire i thread workers
         for (int i=0; i<config.n_workers; i++)
         {
             pthread_create(&tids[i], NULL, &worker, NULL);
+            printf("Worker thread: %ld\n", tids[i]);
         }
 
-        // Aspetto che il master finisca
-        pthread_join(connession_handler_tid, NULL);
         // Aspetto che il dispatcher finisca
         pthread_join(dispatcher_tid, NULL);
+        // Aspetto che il master finisca
+        pthread_join(connession_handler_tid, NULL);
     }
     else
     {
@@ -103,19 +106,11 @@ void* worker(void* args)
         while (requests.length <= 0)
             pthread_cond_wait(&queue_not_empty, &queue_mutex);
 
-        print_list(requests, "Coda richieste quando mi sveglio");
-            
         // Se sono arrivato fin qui, ho una richiesta da elaborare
         ClientRequest* to_free = (ClientRequest*)list_dequeue(&requests);
-
-        if (requests.tail == NULL)
-            printf ("Era null\n");
-        else
-            printf("maremma\n");
-
-        print_list(requests, "Coda richieste quando ho estratto");
         // Copio la richiesta
         memcpy(&request, to_free, sizeof(request));
+        printf("Richiesta da elaborare: %d\n %s\n", request.op_code, request.content);
         // Libero la memoria allocata
         free(to_free);
         // Sblocco la coda
@@ -126,6 +121,7 @@ void* worker(void* args)
         {
             case OPENFILE:;
                 write(request.client_descriptor, &to_send, sizeof(to_send));
+                printf("aperto\n");
                 break;
             case READFILE:
                 break;
@@ -140,24 +136,24 @@ void* worker(void* args)
                 char desc_string[20];
                 sprintf(desc_string, "%d", request.client_descriptor);
 
-                // Rimuovo il descrittore dalla lista dei descrittori attivi
-                pthread_mutex_lock(&client_fds_lock);
-                list_remove_by_key(&client_fds, desc_string);
-                pthread_mutex_unlock(&client_fds_lock);
-
                 // Rimuovo il descrittore dal set
                 pthread_mutex_lock(&desc_set_lock);
                 FD_CLR(request.client_descriptor, &desc_set);
                 pthread_mutex_unlock(&desc_set_lock);
+
+                // Rimuovo il descrittore dalla lista dei descrittori attivi
+                pthread_mutex_lock(&client_fds_lock);
+                list_remove_by_key(&client_fds, desc_string);
+                pthread_mutex_unlock(&client_fds_lock);
                 
                 write(request.client_descriptor, &to_send, sizeof(to_send));
+
+                printf("chiuso\n");
                 break;
             default:
                 fprintf(stderr, "Codice richiesta %d non supportato dal server\n", request.op_code);
                 break;
         }
-
-        print_list(requests, "Coda richieste quando ho finito");
     }
         
     debug++;
@@ -174,12 +170,6 @@ void* dispatcher(void* args)
     while (TRUE)
     {
         FD_ZERO(&read_set);
-
-        // Calcolo il numero attuale di connessioni attive
-        pthread_mutex_lock(&client_fds_lock);
-        int list_len = client_fds.length;
-        pthread_mutex_unlock(&client_fds_lock);
-
         // Salvo il numero massimo dei fd
         pthread_mutex_lock(&max_fd_lock);
         int loc_max_fd = max_fd;
@@ -191,54 +181,75 @@ void* dispatcher(void* args)
             pthread_mutex_lock(&desc_set_lock);
             read_set = desc_set;
             pthread_mutex_unlock(&desc_set_lock);
+
+            // Calcolo il numero attuale di connessioni attive
+            pthread_mutex_lock(&client_fds_lock);
+            int list_len = client_fds.length;
+            pthread_mutex_unlock(&client_fds_lock);
+
+            //printf("Len before: %d\n", list_len);
+            //usleep(1);
             
             // Uso la select per gestire le connessioni che necessitano di attenzione
-            if (select(loc_max_fd + 1, &read_set, NULL, NULL, NULL) == -1)
+            if (list_len != 0)
             {
-                perror("Errore durante la select");
-                exit(EXIT_FAILURE);
-            }
+                struct timeval timeout;
+                timeout.tv_sec = 0;
+                timeout.tv_usec = 1;
 
-            // Ciclo nei set e verifico quali sono pronti
-            for (int i=0; i<list_len; i++)
-            {
-                // Ottengo il fd corrente
-                pthread_mutex_lock(&client_fds_lock);
-                int curr_fd = *((int*)list_get(client_fds, i));
-                pthread_mutex_unlock(&client_fds_lock);
-
-                // Controllo che sia settato e che abbia qualcosa da leggere
-                if (curr_fd <= loc_max_fd && FD_ISSET(curr_fd, &read_set))
+                if (select(loc_max_fd + 1, &read_set, NULL, NULL, &timeout) == -1)
                 {
-                    // Puntatore per salvare la richiesta: è allocata sullo heap perché altrimenti
-                    // la lista ne perderebbe traccia una volta usciti da questa funzione
-                    ClientRequest* request = malloc(sizeof(ClientRequest));
-                    // Dimensione dei dati letti per controllare errori
-                    int read_size = read(curr_fd, request, sizeof(*request));
+                    perror("Errore durante la select");
+                    exit(EXIT_FAILURE);
+                }
 
-                    if (read_size == -1)
-                        perror("Errore nella lettura della richiesta del client");
-                    else
+                // Ciclo nei set e verifico quali sono pronti
+                for (int i=0; i<list_len; i++)
+                {
+                    pthread_mutex_lock(&client_fds_lock);
+                    printf("Len after: %d\n", client_fds.length);
+                    // Ottengo il fd corrente
+                    void* res = list_get(client_fds, i);
+                    if (res == NULL)
                     {
-                        // Aggiungo il file descriptor del clientalla richiesta ricevuta
-                        request->client_descriptor = curr_fd;
-                        // La aggiungo alla coda delle richieste
-                        pthread_mutex_lock(&queue_mutex);
-                        printf("Letti: %d, richiesta ricevuta: %d | %s\n", read_size, request->op_code, request->content);
-                        list_enqueue(&requests, request, NULL);
+                        pthread_mutex_unlock(&client_fds_lock);
+                        continue;
+                    }
+                        
+                    int curr_fd = *((int*)res);
+                    printf("After fault\n");
+                    pthread_mutex_unlock(&client_fds_lock);          
 
-                        print_list(requests, "Coda richieste quando ho aggiunto");
-                        pthread_mutex_unlock(&queue_mutex);
+                    // Controllo che sia settato e che abbia qualcosa da leggere
+                    if (curr_fd <= loc_max_fd && FD_ISSET(curr_fd, &read_set))
+                    {
+                        // Puntatore per salvare la richiesta: è allocata sullo heap perché altrimenti
+                        // la lista ne perderebbe traccia una volta usciti da questa funzione
+                        ClientRequest* request = malloc(sizeof(ClientRequest));
+                        // Dimensione dei dati letti per controllare errori
+                        int read_size = read(curr_fd, request, sizeof(*request));
 
-                        // Segnalo che la coda delle richieste ha un elemento da elaborare
-                        pthread_cond_signal(&queue_not_empty);
+                        if (read_size == -1)
+                            perror("Errore nella lettura della richiesta del client");
+                        else
+                        {
+                            // Aggiungo il file descriptor del client alla richiesta ricevuta
+                            request->client_descriptor = curr_fd;
+                            // La aggiungo alla coda delle richieste
+                            pthread_mutex_lock(&queue_mutex);
+                            list_enqueue(&requests, request, NULL);
+
+                            // Segnalo che la coda delle richieste ha un elemento da elaborare
+                            pthread_cond_signal(&queue_not_empty);
+                            pthread_mutex_unlock(&queue_mutex);
+                        }
                     }
                 }
             }
         }
     }
 
-    return NULL;
+    pthread_exit(NULL);
 }
 
 void* connession_handler(void* args)
@@ -363,7 +374,6 @@ void cleanup()
 
     if (log_file != NULL)
         fclose(log_file);
-    printf("CHIAMATA\n");
 }
 
 ServerConfig config_server()
@@ -474,6 +484,6 @@ ServerConfig config_server()
 void print_request_node(Node* to_print)
 {
     ClientRequest r = *(ClientRequest*)to_print->data;
-
+    
     printf("Op: %d\nContent:%s\n\n", r.op_code, r.content);
 }
