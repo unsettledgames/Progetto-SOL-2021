@@ -93,11 +93,13 @@ void* worker(void* args)
 {
     // Salvataggio della richiesta
     ClientRequest request;
+    // Timestamp
+    time_t timestamp;
 
     while (TRUE)
     {
         // Return value
-        int to_send = 0;
+        int to_send = 0;        
         // Mi metto in attesa sulla variabile condizionale
         pthread_mutex_lock(&queue_mutex);
         while (requests.length <= 0)
@@ -114,6 +116,8 @@ void* worker(void* args)
         // Sblocco la coda
         pthread_mutex_unlock(&queue_mutex);
 
+        // Ottengo il timestamp
+        time(&timestamp);
         // Eseguo la richiesta
         switch (request.op_code)
         {
@@ -139,8 +143,6 @@ void* worker(void* args)
                 }
                 else
                 {
-                    time_t timestamp;
-                    time(&timestamp);
                     // Il file non esisteva, allora lo aggiungo
                     // Preparo il file da aprire
                     File* to_open = malloc(sizeof(File));
@@ -159,9 +161,6 @@ void* worker(void* args)
 
                     // Infine aggiungo il file alla tabella
                     hashmap_put(&files, to_open, to_open->path);
-
-                    printf("Aggiunto file\n");
-
                     pthread_mutex_unlock(&files_mutex);
                 }                
 
@@ -179,11 +178,13 @@ void* worker(void* args)
 
                     // Se è aperto, leggo, altrimenti segnalo l'errore
                     pthread_mutex_lock(&(to_read->lock));
+                    to_read->last_used = timestamp;
                     if (to_read->is_open)
                         strcpy(response.content,to_read->content);
                     else
                         response.error_code = NOT_OPENED;
                     pthread_mutex_unlock(&(to_read->lock));
+                    
                 }
                 else
                 {
@@ -220,6 +221,7 @@ void* worker(void* args)
                         response.error_code = FILE_NOT_FOUND;
                     else
                     {
+                        curr_file->last_used = timestamp;
                         strcpy(response.path, curr_file->path);
                         strcpy(response.content, curr_file->content);
                     }
@@ -247,6 +249,7 @@ void* worker(void* args)
                         {
                             strcpy(to_write->content, request.content);
                             to_write->last_op = WRITEFILE;
+                            to_write->last_used = timestamp;
                         }
                         else
                             to_send = INVALID_LAST_OPERATION;
@@ -267,7 +270,17 @@ void* worker(void* args)
                 writen(request.client_descriptor, &to_send, sizeof(to_send));
 
                 break;
-            case APPENDTOFILE:
+            case APPENDTOFILE:;
+                pthread_mutex_lock(&files_mutex);
+                File* file = (File*)hashmap_get(files, request.path);
+                pthread_mutex_unlock(&files_mutex);
+
+                pthread_mutex_lock(&(file->lock));
+                file->last_used = timestamp;
+                strncat(file->content, request.content, request.content_size);
+                pthread_mutex_unlock(&(file->lock));
+
+                writen(request.client_descriptor, &to_send, sizeof(to_send));
                 break;
             case CLOSEFILE:
                 pthread_mutex_lock(&files_mutex);

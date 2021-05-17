@@ -3,14 +3,17 @@
 ## TODO LIST
 
 - Implementazione basilare delle API (spedire e ricevere risposte)
-  - Read file
-  - Read n files
   - Append to file
 - Implementazione delle funzioni richieste dalle API nel server
 - Gestione della cache lato server
   - LRU
-- Aggiunta delle funzioni di caching nelle API (salvatagio file espulsi)
+- Aggiunta delle funzioni di caching nelle API (restituzione e salvatagio file espulsi)
+  - writeFile
+  - appendToFile
+  - readFile
+  - readNFiles
 - Chiusura e pulizia
+- Flag nella openFile
 - Controllo leak e accessi in memoria
 - Controllo errori
 - Funzioni opzionali

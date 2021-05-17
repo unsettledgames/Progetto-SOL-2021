@@ -113,11 +113,8 @@ int openFile(const char* pathname, int flags)
     to_send.timestamp = timestamp;
     to_send.op_code = OPENFILE;
 
-    printf("apro\n");
     writen(socket_fd, &to_send, sizeof(to_send));
-    printf("aperto\n");
     readn(socket_fd, &reply, sizeof(reply));
-    printf("Ricevuta risposta %d\n", reply);
 
     return reply;
 }
@@ -257,13 +254,33 @@ int readNFiles(int n, const char* dirname)
         else
             must_stop = TRUE;
     }
-    
+
     return 0;
 }
 
 int appendToFile(const char* pathname, void* buf, size_t size, const char* dirname)
 {
-    return 0;
+    ClientRequest to_send;
+    int reply;
+    time_t timestamp;
+
+    time(&timestamp);
+
+    // Creo la richiesta di append
+    to_send.op_code = APPENDTOFILE;
+    strcpy(to_send.path, pathname);
+    strcpy(to_send.content, buf);
+    to_send.content_size = size;
+    to_send.timestamp = timestamp;
+
+    // La invio
+    writen(socket_fd, &to_send, sizeof(to_send));
+    // Ottengo il codice di errore
+    readn(socket_fd, &reply, sizeof(reply));
+
+    printf("Ritorno\n");
+    // Lo ritorno
+    return reply;
 }
 
 int lockFile(const char* pathname)
@@ -289,8 +306,7 @@ int closeFile(const char* pathname)
 
     to_send.op_code = CLOSEFILE;
     strcpy(to_send.path, pathname);
-    to_send.timestamp = timestamp;
-    
+
     // La invio
     write(socket_fd, &to_send, sizeof(to_send));
     // Ricevo la risposta
