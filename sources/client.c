@@ -96,16 +96,16 @@ int execute_requests(ClientConfig config, List* requests)
                 while (args[i] != NULL)
                 {
                     char* real_path = get_absolute_path(args[i]);
+                    int err;
 
                     if (real_path == NULL)
                         perror("Impossibile trovare il percorso del file");
-                    else if (openFile(real_path, 0) != 0)
-                        fprintf(stderr, "Impossibile scrivere il file %s, operazione annullata.\n", real_path);
+                    else if ((err = openFile(real_path, 0)) != 0)
+                        fprintf(stderr, "Impossibile scrivere il file %s, operazione annullata (errore %d).\n", real_path, err);
                     else
                     {
-                        if (writeFile(real_path, config.expelled_dir) != 0)
-                            fprintf(stderr, "Impossibile scrivere il file\n");
-                        printf("chiudo\n");
+                        if ((err = writeFile(real_path, config.expelled_dir)) != 0)
+                            fprintf(stderr, "Impossibile scrivere il file (errore %d)\n", err);
                         closeFile(real_path);
                     }
                     
@@ -120,7 +120,8 @@ int execute_requests(ClientConfig config, List* requests)
                 while (args[i] != NULL)
                 {
                     char* real_path = get_absolute_path(args[i]);
-                    char* file_buffer = malloc(sizeof(char)* MAX_FILE_SIZE);
+                    char* file_buffer = malloc(sizeof(char) * MAX_FILE_SIZE);
+                    memset(file_buffer, 0, MAX_FILE_SIZE);
                     size_t n_to_read = MAX_FILE_SIZE;
 
                     if (real_path == NULL)
@@ -131,20 +132,21 @@ int execute_requests(ClientConfig config, List* requests)
                     else
                     {
                         readFile(real_path, (void**)&file_buffer, &n_to_read);
-                        printf("sus\n");
+                        printf("Contenuto del file %s\n", real_path);
+                        printf("%s\n", file_buffer);
                         closeFile(real_path);
                     }
 
+                    free(file_buffer);
                     i++;
                 }
 
                 break;
-            case 'R':
+            case 'R':;
                 // Argomento: numero di file da leggere dal server, se <0 li legge tutti
-                
-                // Invio richiesta al server
-                // Il server invia una struttura {file, n_rimanenti}
-                // Se n_rimanenti > 0, il client resta in ascolto e chiede il prossimo file
+                int to_read = string_to_int(args[0], FALSE);
+
+                readNFiles(to_read, config.read_dir);
                 break;
             case 'l':
                 // Ogni file su cui abilitare la lock è una stringa nell'array di argomenti

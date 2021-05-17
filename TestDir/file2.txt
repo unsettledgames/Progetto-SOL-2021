@@ -1,1 +1,1 @@
-Contenuto del file2.txt, contenuto nel primo livello della directory di test.
+Prova per il file 2.

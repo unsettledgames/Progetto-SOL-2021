@@ -19,19 +19,19 @@
 
 // SERVER ERRORS
 
-#define CONFIG_FILE_ERROR       -1
-#define INVALID_LAST_OPERATION  -2
+#define CONFIG_FILE_ERROR       -9
+#define INVALID_LAST_OPERATION  -10
 
 // UTILITY errors
 
-#define NAN_ERROR       -1
-#define INVALID_NUMBER  -2
-#define FILE_NOT_FOUND  -3
+#define NAN_ERROR       -11
+#define INVALID_NUMBER  -12
+#define FILE_NOT_FOUND  -13
 
 // FILE errors
 
-#define ALREADY_OPENED      -1
-#define NOT_OPENED          -2
-#define ALREADY_CLOSED      -3
+#define ALREADY_OPENED      -14
+#define NOT_OPENED          -15
+#define ALREADY_CLOSED      -16
 
 #endif

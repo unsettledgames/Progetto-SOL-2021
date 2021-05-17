@@ -127,30 +127,34 @@ int writeFile(const char* pathname, const char* dirname)
     // Numero di file espulsi dalla write
     int n_expelled = 0;
     // Buffer per il contenuto del file
-    char file_buffer[MAX_FILE_SIZE];
+    char* write_buffer = malloc(sizeof(char) * MAX_FILE_SIZE);
     // Buffer per una singola linea del file
     char line_buffer[MAX_FILE_SIZE];
     // Timestamp
     time_t timestamp;
     time(&timestamp);
+
+    // Pulisco il buffer
+    memset(write_buffer, 0, MAX_FILE_SIZE);
     // Apro il file
     FILE* to_read = fopen(pathname, "r");
 
     if (to_read == NULL)
     {
         perror("Errore nell'apertura del file da inviare");
+        free(write_buffer);
         return OPEN_FAILED;
     }
 
     // Leggo il contenuto del file
     while (fgets(line_buffer, sizeof(line_buffer), to_read) > 0)
-        strncat(file_buffer, line_buffer, strlen(line_buffer));
+        strncat(write_buffer, line_buffer, strlen(line_buffer));
 
     // Creo una richiesta
     ClientRequest to_send;
     // La imposto correttamente
     strcpy(to_send.path, pathname);
-    strcpy(to_send.content, file_buffer);
+    strcpy(to_send.content, write_buffer);
     to_send.op_code = WRITEFILE;
     to_send.timestamp = timestamp;
 
@@ -159,7 +163,7 @@ int writeFile(const char* pathname, const char* dirname)
     // Ricevo il numero di file espulsi
     read(socket_fd, &n_expelled, sizeof(int));
 
-    while (n_expelled > 0)
+    /*while (n_expelled > 0)
     {
         if (dirname != NULL)
         {
@@ -169,8 +173,9 @@ int writeFile(const char* pathname, const char* dirname)
         {
             // Stampo e basta
         }
-    }
+    }*/
 
+    free(write_buffer);
     // Termino
     return n_expelled;
 }
@@ -197,9 +202,7 @@ int readFile(const char* pathname, void** buf, size_t* size)
 
     if (to_receive.error_code == OK)
     {
-        printf("Ricevuto: %s\n", to_receive.content);
         memcpy(*buf, to_receive.content, *size);
-        printf("ci sono\n");
         // Scrivo il file nella cartella passata da linea di comando se necessario
     }    
 
