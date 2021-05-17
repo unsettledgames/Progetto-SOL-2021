@@ -2,9 +2,15 @@
 
 ## TODO LIST
 
-- Risveglio dei thread quando c'è una richiesta in coda
-- Esecuzione richieste client
+- Implementazione basilare delle API (spedire e ricevere risposte)
+- Implementazione delle funzioni richieste dalle API nel server
+- Gestione della cache lato server
+  - LRU
+- Aggiunta delle funzioni di caching nelle API (salvatagio file espulsi)
 - Chiusura e pulizia
+- Controllo leak e accessi in memoria
+- Controllo errori
+- Polish se resta tempo
 
 ### SHOULD HAVE
 
