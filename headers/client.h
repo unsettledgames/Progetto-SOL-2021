@@ -4,7 +4,6 @@
 
 #define OPT_NAME_LENGTH     5
 #define OPT_VALUE_LENGTH    100
-#define MAX_FILE_SIZE       100000
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -20,6 +19,7 @@
 #include "utility.h"
 #include "api.h"
 #include "errors.h"
+#include "consts.h"
 
 typedef struct request
 {

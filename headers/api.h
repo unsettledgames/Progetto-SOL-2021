@@ -17,8 +17,6 @@
 #include "consts.h"
 #include "utility.h"
 
-#define MAX_REQUESTCONTENT_SIZE 40000
-
 enum Operations
 {
     OPENFILE =          0, 
@@ -32,7 +30,7 @@ enum Operations
 typedef struct clientrequest
 {
     char path[MAX_PATH_LENGTH];
-    char content[MAX_REQUESTCONTENT_SIZE];
+    char content[MAX_FILE_SIZE];
     unsigned int content_size;
 
     int flags;
@@ -41,6 +39,14 @@ typedef struct clientrequest
 
     int client_descriptor;
 }ClientRequest;
+
+typedef struct serverresponse
+{
+    char path[MAX_PATH_LENGTH];
+    char content[MAX_FILE_SIZE];
+    unsigned int content_size;
+    unsigned int error_code;
+}ServerResponse;
 
 int openConnection(const char* sockname, int msec, const struct timespec abstime);
 

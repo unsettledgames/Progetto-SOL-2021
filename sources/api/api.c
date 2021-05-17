@@ -127,9 +127,9 @@ int writeFile(const char* pathname, const char* dirname)
     // Numero di file espulsi dalla write
     int n_expelled = 0;
     // Buffer per il contenuto del file
-    char file_buffer[MAX_REQUESTCONTENT_SIZE];
+    char file_buffer[MAX_FILE_SIZE];
     // Buffer per una singola linea del file
-    char line_buffer[MAX_REQUESTCONTENT_SIZE];
+    char line_buffer[MAX_FILE_SIZE];
     // Timestamp
     time_t timestamp;
     time(&timestamp);
@@ -177,11 +177,34 @@ int writeFile(const char* pathname, const char* dirname)
 
 int readFile(const char* pathname, void** buf, size_t* size)
 {
+    // Timestamp
+    time_t timestamp;
+    // Creo la richiesta
+    ClientRequest to_send;
+    // Creo la risposta
+    ServerResponse to_receive;
+
+    time(&timestamp);
+
+    to_send.timestamp = timestamp;
+    strcpy(to_send.path, pathname);
+    to_send.op_code = READFILE;
+
     // Invio la richiesta
+    writen(socket_fd, &to_send, sizeof(to_send));
     // Ricevo la risposta
-    // Scrivo il file nella cartella passata da linea di comando se necessario
+    readn(socket_fd, &to_receive, sizeof(to_receive));
+
+    if (to_receive.error_code == OK)
+    {
+        printf("Ricevuto: %s\n", to_receive.content);
+        memcpy(*buf, to_receive.content, *size);
+        printf("ci sono\n");
+        // Scrivo il file nella cartella passata da linea di comando se necessario
+    }    
+
     // Termino
-    return 0;
+    return to_receive.error_code;
 }
 
 int readNFiles(int n, const char* dirname)

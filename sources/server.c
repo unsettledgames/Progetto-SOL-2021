@@ -167,7 +167,32 @@ void* worker(void* args)
 
                 writen(request.client_descriptor, &to_send, sizeof(to_send));
                 break;
-            case READFILE:
+            case READFILE:;
+                ServerResponse response;
+
+                pthread_mutex_lock(&files_mutex);
+                if (hashmap_has_key(files, request.path))
+                {
+                    // Ottengo il file
+                    File* to_read = (File*)hashmap_get(files, request.path);
+                    pthread_mutex_unlock(&files_mutex);
+
+                    // Se è aperto, leggo, altrimenti segnalo l'errore
+                    pthread_mutex_lock(&(to_read->lock));
+                    if (to_read->is_open)
+                        strcpy(response.content,to_read->content);
+                    else
+                        response.error_code = NOT_OPENED;
+                    pthread_mutex_unlock(&(to_read->lock));
+                }
+                else
+                {
+                    response.error_code = FILE_NOT_FOUND;
+                    pthread_mutex_unlock(&files_mutex);
+                }
+
+                // Invio la risposta al client
+                writen(request.client_descriptor, &response, sizeof(response));
                 break;
             case WRITEFILE:
                 // Prendo il file dalla tabella

@@ -3,6 +3,9 @@
 ## TODO LIST
 
 - Implementazione basilare delle API (spedire e ricevere risposte)
+  - Read file
+  - Read n files
+  - Append to file
 - Implementazione delle funzioni richieste dalle API nel server
 - Gestione della cache lato server
   - LRU
@@ -10,6 +13,11 @@
 - Chiusura e pulizia
 - Controllo leak e accessi in memoria
 - Controllo errori
+- Funzioni opzionali
+  - Logging
+  - Compressione
+  - test3
+  - -D
 - Polish se resta tempo
 
 ### SHOULD HAVE

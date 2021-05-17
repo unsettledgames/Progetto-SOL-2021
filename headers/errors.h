@@ -2,6 +2,8 @@
 
  #define ERRORS_H_
 
+ #define OK 0
+
 // CLIENT errors
 
 #define INPUT_TYPE_ERROR            -1

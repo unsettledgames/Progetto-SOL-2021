@@ -22,7 +22,7 @@
 
 typedef struct file 
 {
-    char content[MAX_REQUESTCONTENT_SIZE];
+    char content[MAX_FILE_SIZE];
     char path[MAX_PATH_LENGTH];
     
     pthread_mutex_t lock;

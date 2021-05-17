@@ -105,6 +105,7 @@ int execute_requests(ClientConfig config, List* requests)
                     {
                         if (writeFile(real_path, config.expelled_dir) != 0)
                             fprintf(stderr, "Impossibile scrivere il file\n");
+                        printf("chiudo\n");
                         closeFile(real_path);
                     }
                     
@@ -119,7 +120,7 @@ int execute_requests(ClientConfig config, List* requests)
                 while (args[i] != NULL)
                 {
                     char* real_path = get_absolute_path(args[i]);
-                    char file_buffer[MAX_FILE_SIZE];
+                    char* file_buffer = malloc(sizeof(char)* MAX_FILE_SIZE);
                     size_t n_to_read = MAX_FILE_SIZE;
 
                     if (real_path == NULL)
@@ -130,6 +131,7 @@ int execute_requests(ClientConfig config, List* requests)
                     else
                     {
                         readFile(real_path, (void**)&file_buffer, &n_to_read);
+                        printf("sus\n");
                         closeFile(real_path);
                     }
 
