@@ -30,9 +30,12 @@ int main(int argc, char** argv)
             clock_gettime(CLOCK_REALTIME, &time);
             time.tv_sec += 10;
 
+            // Apertura della connessione
             openConnection(client_configuration.socket_name, 1000, time);
             // Esecuzione delle richieste
             execute_requests(client_configuration, &requests);
+            // Chiusura della connessione
+            closeConnection("LSOfilestorage.sk");
         }
         else
         {
@@ -100,8 +103,8 @@ int execute_requests(ClientConfig config, List* requests)
                         fprintf(stderr, "Impossibile scrivere il file %s, operazione annullata.\n", real_path);
                     else
                     {
-                        closeConnection("LSOfilestorage.sk");
-                        writeFile(real_path, config.expelled_dir);
+                        if (writeFile(real_path, config.expelled_dir) != 0)
+                            fprintf(stderr, "Impossibile scrivere il file\n");
                         closeFile(real_path);
                     }
                     

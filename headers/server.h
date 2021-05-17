@@ -22,10 +22,16 @@
 
 typedef struct file 
 {
-    char* content;
+    char content[MAX_REQUESTCONTENT_SIZE];
+    char path[MAX_PATH_LENGTH];
+    
     pthread_mutex_t lock;
+
     int client_descriptor;
     int last_op;
+    int is_open;
+
+    time_t last_used;
 }File;
 
 typedef struct serverconfig
@@ -35,7 +41,7 @@ typedef struct serverconfig
     unsigned int max_files;
 
     char socket_name[PATH_MAX];
-    char log_path[MAX_LOGPATH_LENGTH];
+    char log_path[MAX_PATH_LENGTH];
 }ServerConfig;
 
 ServerConfig config_server();

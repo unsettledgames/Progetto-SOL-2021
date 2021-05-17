@@ -31,6 +31,7 @@ enum Operations
 
 typedef struct clientrequest
 {
+    char path[MAX_PATH_LENGTH];
     char content[MAX_REQUESTCONTENT_SIZE];
     unsigned int content_size;
 

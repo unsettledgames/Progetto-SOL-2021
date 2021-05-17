@@ -5,4 +5,4 @@
 #define MAX_REQUEST_SIZE        200000
 
 #define MAX_TIME_LENGTH     40
-#define MAX_LOGPATH_LENGTH  128
+#define MAX_PATH_LENGTH  128

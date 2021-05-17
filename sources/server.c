@@ -66,16 +66,13 @@ int main(int argc, char** argv)
 
         // Faccio partire il thread master, che accetta le connessioni
         pthread_create(&connession_handler_tid, NULL, &connession_handler, NULL);
-        printf("Connession: %ld\n", connession_handler_tid);
         // Faccio partire il dispatcher, che riceve le richieste e le aggiunge in coda
         pthread_create(&dispatcher_tid, NULL, &dispatcher, NULL);
-        printf("Dispatcher: %ld\n", dispatcher_tid);
 
         // Faccio partire i thread workers
         for (int i=0; i<config.n_workers; i++)
         {
             pthread_create(&tids[i], NULL, &worker, NULL);
-            printf("Worker thread: %ld\n", tids[i]);
         }
 
         // Aspetto che il dispatcher finisca
@@ -110,7 +107,8 @@ void* worker(void* args)
         ClientRequest* to_free = (ClientRequest*)list_dequeue(&requests);
         // Copio la richiesta
         memcpy(&request, to_free, sizeof(request));
-        printf("Richiesta da elaborare: %d\n %s\n", request.op_code, request.content);
+        perror("Errore?");
+        printf("Richiesta da elaborare | desc: %d\nOP:%d\n", request.client_descriptor, request.op_code);
         // Libero la memoria allocata
         free(to_free);
         // Sblocco la coda
@@ -120,16 +118,126 @@ void* worker(void* args)
         switch (request.op_code)
         {
             case OPENFILE:;
-                write(request.client_descriptor, &to_send, sizeof(to_send));
-                printf("aperto\n");
+                // Verifico che il file non esista o non sia già aperto
+                pthread_mutex_lock(&files_mutex);
+                if (hashmap_has_key(files, request.path))
+                {
+                    // Ottengo il file che mi interessa
+                    File* to_open = (File*)hashmap_get(files, request.path);
+                    pthread_mutex_unlock(&files_mutex);
+
+                    // Se è già stato aperto, lo segnalo
+                    if (to_open->is_open)
+                        to_send = ALREADY_OPENED;
+                    else
+                    {
+                        // Se non era aperto, lo apro
+                        pthread_mutex_lock(&to_open->lock);
+                        to_open->is_open = TRUE;
+                        pthread_mutex_unlock(&to_open->lock);
+                    }
+                }
+                else
+                {
+                    time_t timestamp;
+                    time(&timestamp);
+                    // Il file non esisteva, allora lo aggiungo
+                    // Preparo il file da aprire
+                    File* to_open = malloc(sizeof(File));
+                    // Imposto il percorso
+                    strcpy(to_open->path, request.path);
+                    // Inizializzo la lock
+                    pthread_mutex_init(&(to_open->lock), NULL);
+                    // Imposto il descrittore del client
+                    to_open->client_descriptor = request.client_descriptor;
+                    // Segnalo che l'ultima operazione era una open
+                    to_open->last_op = OPENFILE;
+                    // Segnalo che il file è aperto
+                    to_open->is_open = TRUE;
+                    // Imposto il primo timestamp
+                    to_open->last_used = timestamp;
+
+                    // Infine aggiungo il file alla tabella
+                    hashmap_put(&files, to_open, to_open->path);
+
+                    printf("Aggiunto file\n");
+
+                    pthread_mutex_unlock(&files_mutex);
+                }                
+
+                writen(request.client_descriptor, &to_send, sizeof(to_send));
                 break;
             case READFILE:
                 break;
             case WRITEFILE:
+                // Prendo il file dalla tabella
+                pthread_mutex_lock(&files_mutex);
+                if (hashmap_has_key(files, request.path))
+                {
+                    // Dato che esiste, prendo il file corrispondente al path
+                    File* to_write = (File*)hashmap_get(files, request.path);
+                    pthread_mutex_unlock(&files_mutex);
+
+                    pthread_mutex_lock(&(to_write->lock));
+                    // Se il file è aperto e l'ultima operazione era una open da parte dello stesso client,
+                    // allora posso scrivere
+                    if (to_write->is_open)
+                    {
+                        if (to_write->last_op == OPENFILE && to_write->client_descriptor == request.client_descriptor)
+                        {
+                            strcpy(to_write->content, request.content);
+                            to_write->last_op = WRITEFILE;
+                        }
+                        else
+                            to_send = INVALID_LAST_OPERATION;
+                    }
+                    else
+                        to_send = NOT_OPENED;
+
+                    pthread_mutex_unlock(&(to_write->lock));
+                }
+                // Se il file non esiste nel server, lo segnalo
+                else
+                {
+                    to_send = FILE_NOT_FOUND;
+                    pthread_mutex_unlock(&files_mutex);
+                }
+
+                // Invio della risposta
+                writen(request.client_descriptor, &to_send, sizeof(to_send));
+
                 break;
             case APPENDTOFILE:
                 break;
             case CLOSEFILE:
+                pthread_mutex_lock(&files_mutex);
+                if (hashmap_has_key(files, request.path))
+                {
+                    File* to_close = (File*)hashmap_get(files, request.path);
+                    pthread_mutex_unlock(&files_mutex);
+
+                    pthread_mutex_lock(&(to_close->lock));
+                    // Se è aperto lo chiudo
+                    if (to_close->is_open)
+                    {
+                        to_close->is_open = FALSE;
+                        to_close->last_op = CLOSEFILE;
+                    }
+                    // Altrimenti segnalo quello che stavo cercando di fare
+                    else
+                        to_send = ALREADY_CLOSED;
+                        
+                    pthread_mutex_unlock(&(to_close->lock));
+                }
+                else
+                {
+                    to_send = FILE_NOT_FOUND;
+                    pthread_mutex_unlock(&files_mutex);
+                }
+
+                // Invio la risposta
+                writen(request.client_descriptor, &to_send, sizeof(int));
+                    
                 break;
             case CLOSECONNECTION:;
                 // Descrittore in formato di stringa per poterlo rimuovere
@@ -146,14 +254,19 @@ void* worker(void* args)
                 list_remove_by_key(&client_fds, desc_string);
                 pthread_mutex_unlock(&client_fds_lock);
                 
-                write(request.client_descriptor, &to_send, sizeof(to_send));
-
-                printf("chiuso\n");
+                writen(request.client_descriptor, &to_send, sizeof(to_send));
                 break;
             default:
                 fprintf(stderr, "Codice richiesta %d non supportato dal server\n", request.op_code);
                 break;
         }
+
+        // Resetto il valore di ritorno
+        to_send = 0;
+        // Una volta esaudita la richiesta, posso ricominciare ad ascoltare quel client
+        pthread_mutex_lock(&desc_set_lock);
+        FD_SET(request.client_descriptor, &desc_set);
+        pthread_mutex_unlock(&desc_set_lock);
     }
         
     debug++;
@@ -186,9 +299,6 @@ void* dispatcher(void* args)
             pthread_mutex_lock(&client_fds_lock);
             int list_len = client_fds.length;
             pthread_mutex_unlock(&client_fds_lock);
-
-            //printf("Len before: %d\n", list_len);
-            //usleep(1);
             
             // Uso la select per gestire le connessioni che necessitano di attenzione
             if (list_len != 0)
@@ -207,7 +317,6 @@ void* dispatcher(void* args)
                 for (int i=0; i<list_len; i++)
                 {
                     pthread_mutex_lock(&client_fds_lock);
-                    printf("Len after: %d\n", client_fds.length);
                     // Ottengo il fd corrente
                     void* res = list_get(client_fds, i);
                     if (res == NULL)
@@ -217,7 +326,6 @@ void* dispatcher(void* args)
                     }
                         
                     int curr_fd = *((int*)res);
-                    printf("After fault\n");
                     pthread_mutex_unlock(&client_fds_lock);          
 
                     // Controllo che sia settato e che abbia qualcosa da leggere
@@ -227,7 +335,9 @@ void* dispatcher(void* args)
                         // la lista ne perderebbe traccia una volta usciti da questa funzione
                         ClientRequest* request = malloc(sizeof(ClientRequest));
                         // Dimensione dei dati letti per controllare errori
-                        int read_size = read(curr_fd, request, sizeof(*request));
+                        int read_size = readn(curr_fd, request, sizeof(*request));
+
+                        printf("Letti: %d\n", read_size);
 
                         if (read_size == -1)
                             perror("Errore nella lettura della richiesta del client");
@@ -235,6 +345,10 @@ void* dispatcher(void* args)
                         {
                             // Aggiungo il file descriptor del client alla richiesta ricevuta
                             request->client_descriptor = curr_fd;
+                            // Impedisco che la select possa leggere duplicati nelle richieste
+                            pthread_mutex_lock(&desc_set_lock);
+                            FD_CLR(curr_fd, &desc_set);
+                            pthread_mutex_unlock(&desc_set_lock);
                             // La aggiungo alla coda delle richieste
                             pthread_mutex_lock(&queue_mutex);
                             list_enqueue(&requests, request, NULL);
@@ -300,7 +414,7 @@ int create_log()
     // Nome del file di log
     char log_name[MAX_TIME_LENGTH];
     // Path completo del file di log
-    char log_path[MAX_LOGPATH_LENGTH * 2];
+    char log_path[MAX_PATH_LENGTH * 2];
     // Timestamp attuale
     time_t raw_time;
     struct tm* time_info;

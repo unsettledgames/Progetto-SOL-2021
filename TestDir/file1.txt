@@ -1,1 +1,4 @@
 Contenuto del file1.txt, nel primo livello della directory di Test.
+Questa è la seconda riga del file1.txt.
+Terza riga.
+Ultima.

@@ -13,14 +13,23 @@
 #define FILESYSTEM_ERROR        -6
 #define NOT_A_FOLDER            -7
 
+#define OPEN_FAILED             -8
+
 // SERVER ERRORS
 
-#define CONFIG_FILE_ERROR       -8
+#define CONFIG_FILE_ERROR       -1
+#define INVALID_LAST_OPERATION  -2
 
 // UTILITY errors
 
 #define NAN_ERROR       -1
 #define INVALID_NUMBER  -2
 #define FILE_NOT_FOUND  -3
+
+// FILE errors
+
+#define ALREADY_OPENED      -1
+#define NOT_OPENED          -2
+#define ALREADY_CLOSED      -3
 
 #endif

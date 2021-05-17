@@ -95,8 +95,6 @@ int closeConnection(const char* sockname)
     // Chiudo il socket
     close(socket_fd);
 
-    printf("chiuso\n");
-
     return reply;
 }
 
@@ -108,7 +106,7 @@ int openFile(const char* pathname, int flags)
 
     time(&timestamp);
 
-    strcpy(to_send.content, pathname);
+    strcpy(to_send.path, pathname);
     to_send.content_size = strlen(pathname);
 
     to_send.flags = flags;
@@ -126,13 +124,55 @@ int openFile(const char* pathname, int flags)
 
 int writeFile(const char* pathname, const char* dirname)
 {
-    // Apro il file nel server?
-    // Invio i dati 
-    // Ricevo i file espulsi
-    // Chiudo il file?
-    // Scrivo i file espulsi nella cartella passata da linea di comando se necessario
+    // Numero di file espulsi dalla write
+    int n_expelled = 0;
+    // Buffer per il contenuto del file
+    char file_buffer[MAX_REQUESTCONTENT_SIZE];
+    // Buffer per una singola linea del file
+    char line_buffer[MAX_REQUESTCONTENT_SIZE];
+    // Timestamp
+    time_t timestamp;
+    time(&timestamp);
+    // Apro il file
+    FILE* to_read = fopen(pathname, "r");
+
+    if (to_read == NULL)
+    {
+        perror("Errore nell'apertura del file da inviare");
+        return OPEN_FAILED;
+    }
+
+    // Leggo il contenuto del file
+    while (fgets(line_buffer, sizeof(line_buffer), to_read) > 0)
+        strncat(file_buffer, line_buffer, strlen(line_buffer));
+
+    // Creo una richiesta
+    ClientRequest to_send;
+    // La imposto correttamente
+    strcpy(to_send.path, pathname);
+    strcpy(to_send.content, file_buffer);
+    to_send.op_code = WRITEFILE;
+    to_send.timestamp = timestamp;
+
+    // Invio i dati
+    write(socket_fd, &to_send, sizeof(to_send));
+    // Ricevo il numero di file espulsi
+    read(socket_fd, &n_expelled, sizeof(int));
+
+    while (n_expelled > 0)
+    {
+        if (dirname != NULL)
+        {
+            // Scrivo nella cartella
+        }
+        else
+        {
+            // Stampo e basta
+        }
+    }
+
     // Termino
-    return 0;
+    return n_expelled;
 }
 
 int readFile(const char* pathname, void** buf, size_t* size)
@@ -166,7 +206,25 @@ int unlockFile(const char* pathname)
 
 int closeFile(const char* pathname)
 {
-    return 0;
+    // Timestamp
+    time_t timestamp;
+    // Richiesta
+    ClientRequest to_send;
+    // Risposta
+    int reply;
+
+    time(&timestamp);
+
+    to_send.op_code = CLOSEFILE;
+    strcpy(to_send.path, pathname);
+    to_send.timestamp = timestamp;
+    
+    // La invio
+    write(socket_fd, &to_send, sizeof(to_send));
+    // Ricevo la risposta
+    read(socket_fd, &reply, sizeof(int));
+
+    return reply;
 }
 
 int removeFile(const char* pathname)
