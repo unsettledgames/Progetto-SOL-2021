@@ -29,4 +29,6 @@ int hashmap_remove(Hashmap* hm, const char* key);
 
 int hashmap_has_key(Hashmap hm, const char* key);
 
+List hashmap_get_values(Hashmap hm);
+
 #endif

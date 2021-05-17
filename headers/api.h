@@ -24,7 +24,8 @@ enum Operations
     WRITEFILE =         2, 
     APPENDTOFILE =      3, 
     CLOSEFILE =         4,
-    CLOSECONNECTION =   5
+    CLOSECONNECTION =   5,
+    PARTIALREAD =       6
 };
 
 typedef struct clientrequest

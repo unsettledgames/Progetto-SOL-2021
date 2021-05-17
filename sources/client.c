@@ -133,7 +133,7 @@ int execute_requests(ClientConfig config, List* requests)
                     {
                         readFile(real_path, (void**)&file_buffer, &n_to_read);
                         printf("Contenuto del file %s\n", real_path);
-                        printf("%s\n", file_buffer);
+                        printf("%s\n\n", file_buffer);
                         closeFile(real_path);
                     }
 
@@ -144,7 +144,7 @@ int execute_requests(ClientConfig config, List* requests)
                 break;
             case 'R':;
                 // Argomento: numero di file da leggere dal server, se <0 li legge tutti
-                int to_read = string_to_int(args[0], FALSE);
+                int to_read = string_to_int(args[0], FALSE);                
 
                 readNFiles(to_read, config.read_dir);
                 break;

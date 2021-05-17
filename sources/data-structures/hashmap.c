@@ -40,6 +40,36 @@ int main(int argc, char** argv)
 
 */
 
+List hashmap_get_values(Hashmap hm)
+{
+    // Lista di ritorno, la inizializzo
+    List ret;
+    list_initialize(&ret, NULL);
+
+    // Per ogni lista nella mappa
+    for (int i=0; i<hm.size; i++)
+    {
+        // Prendo la lista corrente
+        List curr_list = hm.lists[i];
+
+        // Se ha almeno un elemento
+        if (curr_list.length > 0)
+        {
+            // Scorro nella lista
+            Node* curr = curr_list.head;
+
+            // Aggiungo tutti i nodi alla lista di ritorno
+            while (curr != NULL)
+            {
+                list_push(&ret, curr->data, curr->key);
+                curr = curr->next;
+            }
+        }
+    }
+
+    return ret;
+}
+
 void hashmap_initialize(Hashmap* hm, int size, void (*printer) (Node* to_print))
 {
     hm->lists = malloc(sizeof(List) * size);

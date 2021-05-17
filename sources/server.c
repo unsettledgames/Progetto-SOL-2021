@@ -194,6 +194,41 @@ void* worker(void* args)
                 // Invio la risposta al client
                 writen(request.client_descriptor, &response, sizeof(response));
                 break;
+            case PARTIALREAD:;
+                List file_list;
+                int to_send;
+
+                pthread_mutex_lock(&files_mutex);
+                
+                // Ottengo tutti i file dalla tabella
+                file_list = hashmap_get_values(files);
+                // Calcolo quanti file devo effettivamente spedire
+                if (request.flags < 0 || file_list.length < request.flags)
+                    to_send = file_list.length;
+                else   
+                    to_send = request.flags;
+                // Indico al client quanti file sto per ritornare
+                writen(request.client_descriptor, &(to_send), sizeof(to_send));
+
+                // Invio i file al client
+                for (int i=0; i<to_send; i++)
+                {
+                    ServerResponse response;
+                    File* curr_file = (File*)list_get(file_list, i);
+
+                    if (curr_file == NULL)
+                        response.error_code = FILE_NOT_FOUND;
+                    else
+                    {
+                        strcpy(response.path, curr_file->path);
+                        strcpy(response.content, curr_file->content);
+                    }
+
+                    // Invio la risposta
+                    writen(request.client_descriptor, &response, sizeof(response));
+                }
+
+                pthread_mutex_unlock(&files_mutex);
             case WRITEFILE:
                 // Prendo il file dalla tabella
                 pthread_mutex_lock(&files_mutex);

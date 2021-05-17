@@ -210,8 +210,54 @@ int readFile(const char* pathname, void** buf, size_t* size)
     return to_receive.error_code;
 }
 
+/**
+    Molto nebulosa e ambigua.
+    1) Non ho i nomi dei file che voglio
+    2) Ritorna un intero, quindi devo per forza stampare nell'api
+    3) Se il client non setta -p questa non dovrebbe stampare, quindi dovrei passare pure p
+    4) Non avendo i nomi, non posso aprire i file e quindi contravvengo al principio per cui per leggere un 
+       file dovrei prima aprirlo.
+
+*/
 int readNFiles(int n, const char* dirname)
 {
+    // Impostato tramite risposta dal server, indica se devo smettere di leggere
+    int must_stop = FALSE;
+    // Timestamp
+    time_t timestamp;
+    // Indica il numero di file che il server intende restituire
+    int to_read;
+
+    // Risposta del server
+    ServerResponse response;
+    // Richiesta del client
+    ClientRequest request;
+
+    // Mando una richiesta
+    request.flags = n;
+    request.op_code = PARTIALREAD;
+    request.timestamp = timestamp;
+    writen(socket_fd, &request, sizeof(request));
+
+    // Leggo quanti file devo leggere
+    readn(socket_fd, &to_read, sizeof(to_read));
+
+    // Vado avanti finché ho da leggere
+    for (int i=0; i<to_read; i++)
+    {
+        // Leggo un file
+        readn(socket_fd, &response, sizeof(response));
+        // Se non ho avuto errori, posso leggere
+        if (response.error_code == OK)
+        {
+            printf("Contenuto del file %s\n", response.path);
+            printf("%s\n\n", response.content);
+        }
+        // Altrimenti devo fermarmi
+        else
+            must_stop = TRUE;
+    }
+    
     return 0;
 }
 
