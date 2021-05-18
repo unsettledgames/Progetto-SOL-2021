@@ -120,6 +120,24 @@ int execute_requests(ClientConfig config, List* requests)
                 }
 
                 break;
+            case 'a':;
+                // Il primo argomento è il nome del file a cui appendere, il secondo è ciò che voglio appendere
+                char* real_path = get_absolute_path(args[0]);
+                int err;
+                
+                if (real_path == NULL)
+                    perror("Impossibile appendere a un file non esistente");
+                else if ((err = openFile(real_path, 0)) != 0)
+                    perror("Errore nell'apertura del file");
+                else
+                {
+                    err = appendToFile(real_path, args[1], strlen(args[1]), config.expelled_dir);
+                    if (err != 0)
+                        perror("Impossibile appendere al file");
+                    closeFile(real_path);
+                }
+
+                break;
             case 'r':
                 // Ogni file da leggere è una stringa nell'array di argomenti
                 i = 0;
@@ -405,7 +423,7 @@ int parse_options(Hashmap* config, List* requests, int n_args, char** args)
     opt_value = malloc(sizeof(char) * OPT_VALUE_LENGTH);
     opt_name = malloc(sizeof(char) * OPT_NAME_LENGTH);
 
-    while ((opt = getopt(n_args, args, ":phf:w:W:D:R::r:d:t:l:u:c:")) != -1)
+    while ((opt = getopt(n_args, args, ":phf:w:W:D:R::r:d:t:l:u:c:a:")) != -1)
     {
         switch (opt)
         {
@@ -442,6 +460,7 @@ int parse_options(Hashmap* config, List* requests, int n_args, char** args)
             case 'l':
             case 'u':
             case 'c':
+            case 'a':
                 sprintf(opt_name, "%c", opt);
                 // Salvo le informazioni passate da linea di comando
                 curr_request->code = opt;

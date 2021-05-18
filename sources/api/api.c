@@ -129,6 +129,8 @@ int writeFile(const char* pathname, const char* dirname)
     char line_buffer[MAX_FILE_SIZE];
     // Timestamp
     time_t timestamp;
+    // return
+    int ret = 0;
     time(&timestamp);
 
     // Pulisco il buffer
@@ -160,31 +162,14 @@ int writeFile(const char* pathname, const char* dirname)
     // Ricevo il numero di file espulsi
     readn(socket_fd, &n_expelled, sizeof(n_expelled));
 
-    printf("N espulsi: %d\n", n_expelled);
-
-    while (n_expelled > 0)
-    {
-        // Ricevo un file dal server
-        ServerResponse response;
-        readn(socket_fd, &response, sizeof(response));
-
-        printf("File espulso:\n%s\n%s\n\n", response.path, response.content);
-
-        if (dirname != NULL)
-        {
-            // Scrivo nella cartella
-        }
-        else
-        {
-            // Stampo e basta
-        }
-
-        n_expelled--;
-    }
+    if (n_expelled < 0)
+        return n_expelled;
+    // Gestisco i file espulsi
+    ret = handle_expelled_files(n_expelled, dirname);
 
     free(write_buffer);
     // Termino
-    return n_expelled;
+    return ret;
 }
 
 int readFile(const char* pathname, void** buf, size_t* size)
@@ -290,19 +275,46 @@ int appendToFile(const char* pathname, void* buf, size_t size, const char* dirna
     // Ottengo il codice di errore
     readn(socket_fd, &reply, sizeof(reply));
 
-    printf("Ritorno\n");
+    if (reply < 0)
+        return reply;
+
+    reply = handle_expelled_files(reply, dirname);
     // Lo ritorno
     return reply;
 }
 
-int lockFile(const char* pathname)
+int handle_expelled_files(int to_read, const char* dirname)
 {
-    return 0;
-}
+    int err = 0;
 
-int unlockFile(const char* pathname)
-{
-    return 0;
+    while (to_read > 0 && err >= 0)
+    {
+        // Ricevo un file dal server
+        ServerResponse response;
+        err = readn(socket_fd, &response, sizeof(response));
+
+        if (err > 0)
+        {
+            if (dirname != NULL)
+            {
+                // Scrivo nella cartella
+            }
+            else
+            {
+                // Stampo e basta
+                printf("File espulso:\n%s\n%s\n\n", response.path, response.content);
+            }
+        }
+        else
+            err = EXPELLED_FILE_FAILED;
+
+        to_read--;
+    }
+
+    if (err > 0)
+        err = 0;
+
+    return err;
 }
 
 int closeFile(const char* pathname)
@@ -325,6 +337,16 @@ int closeFile(const char* pathname)
     read(socket_fd, &reply, sizeof(int));
 
     return reply;
+}
+
+int lockFile(const char* pathname)
+{
+    return 0;
+}
+
+int unlockFile(const char* pathname)
+{
+    return 0;
 }
 
 int removeFile(const char* pathname)

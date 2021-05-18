@@ -16,6 +16,7 @@
 #define NOT_A_FOLDER            -202
 
 #define OPEN_FAILED             -203
+#define EXPELLED_FILE_FAILED    -204
 
 // SERVER ERRORS
 

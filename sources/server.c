@@ -101,6 +101,11 @@ void* worker(void* args)
         int to_send = 0;        
         // Numero di elementi da spedire al client
         int n_expelled = 0;
+        // File espulsi dal server da spedire al client
+        File* files_to_send;
+        // Dimensione del file corrente
+        int file_size;
+
         // Mi metto in attesa sulla variabile condizionale
         pthread_mutex_lock(&queue_mutex);
         while (requests.length <= 0)
@@ -240,13 +245,13 @@ void* worker(void* args)
                 break;
             case WRITEFILE:;
                 // FIle espulsi da rispedire al client
-                File* files_to_send = NULL;
+                files_to_send = NULL;
                 // Prendo il file dalla tabella
                 pthread_mutex_lock(&files_mutex);
                 // File da scrivere
                 File* to_write = NULL;
                 // Dimensione del file da scrivere
-                int file_size = -1;
+                file_size = -1;
 
                 if (hashmap_has_key(files, request.path))
                 {
@@ -348,18 +353,85 @@ void* worker(void* args)
                 to_write->last_used = timestamp;
                 to_write->content_size = file_size;
 
+                // Dealloco
+                if (files_to_send != NULL)
+                    free(files_to_send);
+
                 break;
             case APPENDTOFILE:;
+                // Prendo il file a cui appendere i dati
                 pthread_mutex_lock(&files_mutex);
                 File* file = (File*)hashmap_get(files, request.path);
+                // Array dei file da espellere
+                files_to_send = malloc(sizeof(File) * files.curr_size);
+                // Dimensione del contenuto da appendere
+                file_size = strlen(request.content);
+
+                if (file != NULL)
+                {
+                    pthread_mutex_lock(&allocated_space_mutex);
+                    // Aggiungo la lunghezza dei dati da concatenare al file
+                    allocated_space += strlen(request.content);
+
+                    // Se sto cercando di avere un file più grande dell'intero sistema, non ho speranze di aggiungerlo
+                    if ((file_size + file->content_size) > config.tot_space)
+                        to_send = FILE_TOO_BIG;
+                    else
+                    {
+                        // Altrimenti espello file finché non ho abbastanza spazio
+                        while (allocated_space > config.tot_space && to_send >= 0)
+                        {
+                            // Provo a ottnere il path del lru
+                            char* expelled_path = get_LRU(request.path);
+
+                            if (expelled_path != NULL && strcmp(expelled_path, "") != 0)
+                            {
+                                // Copio il file da eliminare così da poterlo spedire al client
+                                File* to_remove = hashmap_get(files, expelled_path);
+                                memcpy(&(files_to_send[to_send]), to_remove, sizeof(File));
+
+                                // Rimuovo il file dal sistema
+                                hashmap_remove(&files, expelled_path);
+                                // Ho dello spazio in meno
+                                allocated_space -= files_to_send[to_send].content_size;
+                                // Ho un file da spedire al client in più
+                                to_send++;
+                            }
+                            else
+                                to_send = LRU_FAILURE;
+                        }
+                    }
+                    pthread_mutex_unlock(&allocated_space_mutex);
+                }
+                else
+                    to_send = FILE_NOT_FOUND;
+                
                 pthread_mutex_unlock(&files_mutex);
 
-                pthread_mutex_lock(&(file->lock));
-                file->last_used = timestamp;
-                strncat(file->content, request.content, request.content_size);
-                pthread_mutex_unlock(&(file->lock));
-
+                // Invio il risultato dell'operazione al client
                 writen(request.client_descriptor, &to_send, sizeof(to_send));
+                
+                // Se non ci sono stati errori, invio i file al client
+                if (to_send >= 0)
+                {
+                    for (int i=0; i<to_send; i++)
+                    {
+                        // Creo la risposta
+                        ServerResponse response;
+                        memcpy(response.path, files_to_send[i].path, sizeof(response.path));
+                        memcpy(response.content, files_to_send[i].content, sizeof(response.content));
+        
+                        // Invio la risposta
+                        writen(request.client_descriptor, &response, sizeof(response));
+                        printf("inviato file\n");
+                    }
+                }
+
+                // Adesso posso appendere
+                file->last_used = timestamp;
+                file->content_size += file_size;
+                strncat(file->content, request.content, request.content_size);
+
                 break;
             case CLOSEFILE:
                 pthread_mutex_lock(&files_mutex);

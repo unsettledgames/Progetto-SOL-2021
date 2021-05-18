@@ -71,4 +71,6 @@ int closeFile(const char* pathname);
 
 int removeFile(const char* pathname);
 
+int handle_expelled_files(int to_read, const char* dirname);
+
 #endif
