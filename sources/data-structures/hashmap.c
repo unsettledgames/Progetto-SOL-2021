@@ -75,6 +75,7 @@ void hashmap_initialize(Hashmap* hm, int size, void (*printer) (Node* to_print))
     hm->lists = malloc(sizeof(List) * size);
     hm->size = size;
     hm->printer = printer;
+    hm->curr_size = 0;
     
     for (int i=0; i<size; i++)
         list_initialize(&(hm->lists[i]), printer);
@@ -135,6 +136,8 @@ int hashmap_put(Hashmap* hm, void* data, const char* key)
     // Inserisco nella lista
     list_push(&(hm->lists[index]), data, key);
 
+    hm->curr_size++;
+
     return 0;
 }
 
@@ -144,6 +147,8 @@ int hashmap_remove(Hashmap* hm, const char* key)
     int index = hashmap_hash(key, hm->size);
     // Rimuovo dalla lista
     list_remove_by_key(&(hm->lists[index]), key);
+    
+    hm->curr_size--;
 
     return 0;
 }

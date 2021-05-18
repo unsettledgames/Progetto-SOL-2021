@@ -1,5 +1,5 @@
 4
-1000000
+150
 100
 LSOfilestorage.sk
 Logs

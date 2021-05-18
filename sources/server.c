@@ -95,11 +95,15 @@ void* worker(void* args)
     ClientRequest request;
     // Timestamp
     time_t timestamp;
+    // Variabile temporanea
+    int tmp;
 
     while (TRUE)
     {
         // Return value
         int to_send = 0;        
+        // Numero di elementi da spedire al client
+        int n_expelled = 0;
         // Mi metto in attesa sulla variabile condizionale
         pthread_mutex_lock(&queue_mutex);
         while (requests.length <= 0)
@@ -109,8 +113,7 @@ void* worker(void* args)
         ClientRequest* to_free = (ClientRequest*)list_dequeue(&requests);
         // Copio la richiesta
         memcpy(&request, to_free, sizeof(request));
-        perror("Errore?");
-        printf("Richiesta da elaborare | desc: %d\nOP:%d\n", request.client_descriptor, request.op_code);
+        printf("\nRichiesta da elaborare | desc: %d\nOP:%d\n", request.client_descriptor, request.op_code);
         // Libero la memoria allocata
         free(to_free);
         // Sblocco la coda
@@ -146,8 +149,15 @@ void* worker(void* args)
                     // Il file non esisteva, allora lo aggiungo
                     // Preparo il file da aprire
                     File* to_open = malloc(sizeof(File));
+                    // Chiave del file da aprire
+                    char* file_key = malloc(sizeof(char) * MAX_PATH_LENGTH);
+                    // Resetto la memoria della chiave
+                    memset(file_key, 0, MAX_PATH_LENGTH);
+
                     // Imposto il percorso
-                    strcpy(to_open->path, request.path);
+                    strncpy(to_open->path, request.path, MAX_PATH_LENGTH);
+                    strncpy(file_key, to_open->path, MAX_PATH_LENGTH);
+
                     // Inizializzo la lock
                     pthread_mutex_init(&(to_open->lock), NULL);
                     // Imposto il descrittore del client
@@ -160,7 +170,7 @@ void* worker(void* args)
                     to_open->last_used = timestamp;
 
                     // Infine aggiungo il file alla tabella
-                    hashmap_put(&files, to_open, to_open->path);
+                    hashmap_put(&files, to_open, file_key);
                     pthread_mutex_unlock(&files_mutex);
                 }                
 
@@ -197,7 +207,6 @@ void* worker(void* args)
                 break;
             case PARTIALREAD:;
                 List file_list;
-                int to_send;
 
                 pthread_mutex_lock(&files_mutex);
                 
@@ -236,6 +245,8 @@ void* worker(void* args)
                 pthread_mutex_lock(&files_mutex);
                 if (hashmap_has_key(files, request.path))
                 {
+                    // Dimensione del contenuto da scrivere
+                    int file_size = strlen(request.content);
                     // Dato che esiste, prendo il file corrispondente al path
                     File* to_write = (File*)hashmap_get(files, request.path);
                     pthread_mutex_unlock(&files_mutex);
@@ -247,9 +258,86 @@ void* worker(void* args)
                     {
                         if (to_write->last_op == OPENFILE && to_write->client_descriptor == request.client_descriptor)
                         {
-                            strcpy(to_write->content, request.content);
-                            to_write->last_op = WRITEFILE;
-                            to_write->last_used = timestamp;
+                            // Salvo i file così dopo li spedisco al client
+                            File* files_to_send;
+
+                            // Scrivo solo se ho spazio per farlo
+                            if (file_size < config.tot_space)
+                            {
+                                // Aggiorno lo spazio allocato dai file
+                                pthread_mutex_lock(&allocated_space_mutex);
+                                allocated_space += file_size;
+                                
+                                // Se non posso tenere altri file in cache, ne rimuovo finché non ho 
+                                // spazio disponibile
+                                pthread_mutex_lock(&files_mutex);
+
+                                // Nel peggiore dei casi, i file da spedire indietro sono tutti (TODO: usare una lista)
+                                files_to_send = malloc(sizeof(File) * files.curr_size);
+
+                                printf("Alloc space: %d\n", allocated_space);
+
+                                while (allocated_space > config.tot_space && to_send >= 0)
+                                {
+                                    // Calcolo il path del file da rimuovere
+                                    char* to_remove = get_LRU(request.path);
+                                    
+                                    // Se la LRU ha ritornato qualcosa, allora rimuovo quel file
+                                    if (to_remove != NULL)
+                                    {
+                                        // Salvo il file perché la remove dealloca i dati
+                                        File* LRUed = (File*)hashmap_get(files, to_remove);
+                                        memcpy(&(files_to_send[n_expelled]), LRUed, sizeof(*LRUed));
+
+                                        // Aggiorno lo spazio e rimuovo il file
+                                        allocated_space -= strlen(LRUed->content);
+                                        hashmap_remove(&files, to_remove);
+                                        
+                                        to_send++;
+                                        printf("\nHo espulso %s\n\n", to_remove);
+                                    }
+                                    // Altrimenti ho fallito e non posso aggiungere il file
+                                    else
+                                        to_send = LRU_FAILURE;
+                                }
+                                pthread_mutex_unlock(&files_mutex);
+                                pthread_mutex_unlock(&allocated_space_mutex);
+                            }
+                            else
+                                to_send = FILE_TOO_BIG;
+                            
+                            pthread_mutex_lock(&files_mutex);
+                            if (files.curr_size == config.max_files)
+                                to_send = FILE_AMOUNT_LIMIT;
+                            pthread_mutex_unlock(&files_mutex);
+
+                            // Invio to_send al client
+                            writen(request.client_descriptor, &to_send, sizeof(int));
+
+                            if (to_send < 0)
+                            {
+                                printf("Al client invio %d\n", to_send);
+                                // Altrimenti invio al client il numero di file tolti tramite LRU
+                                writen(request.client_descriptor, &to_send, sizeof(int));
+
+                                // E invio anche i file rimossi
+                                for (int i=0; i<to_send; i++)
+                                {
+                                    // Creo la risposta
+                                    ServerResponse response;
+                                    memcpy(response.path, files_to_send[i].path, sizeof(response.path));
+                                    memcpy(response.content, files_to_send[i].content, sizeof(response.content));
+                    
+                                    // Invio la risposta
+                                    writen(request.client_descriptor, &response, sizeof(response));
+                                    printf("inviato file\n");
+                                }
+
+                                // Solo ora posso scrivere i dati inviati dal client
+                                strcpy(to_write->content, request.content);
+                                to_write->last_op = WRITEFILE;
+                                to_write->last_used = timestamp;
+                            }
                         }
                         else
                             to_send = INVALID_LAST_OPERATION;
@@ -409,8 +497,6 @@ void* dispatcher(void* args)
                         ClientRequest* request = malloc(sizeof(ClientRequest));
                         // Dimensione dei dati letti per controllare errori
                         int read_size = readn(curr_fd, request, sizeof(*request));
-
-                        printf("Letti: %d\n", read_size);
 
                         if (read_size == -1)
                             perror("Errore nella lettura della richiesta del client");
@@ -673,4 +759,36 @@ void print_request_node(Node* to_print)
     ClientRequest r = *(ClientRequest*)to_print->data;
     
     printf("Op: %d\nContent:%s\n\n", r.op_code, r.content);
+}
+
+char* get_LRU(char* current_path)
+{
+    // Timestamp iniziale, lo setto al momento attuale così sicuramente almeno un file sarà stato usato prima
+    time_t timestamp;
+    // Path del file da eliminare
+    char* to_ret = malloc(sizeof(char) * MAX_PATH_LENGTH);
+    // Ottengo tutti i file nella tabella
+    List values = hashmap_get_values(files);
+
+    memset(to_ret, 0, sizeof(to_ret));
+    
+    // Ciclo tra i file
+    for (int i=0; i<values.length; i++)
+    {
+        File* curr_file = (File*)list_get(values, i);
+
+        if (curr_file->last_used < timestamp && strcmp(curr_file->path, current_path) != 0)
+        {
+            timestamp = curr_file->last_used;
+            strncpy(to_ret, curr_file->path, MAX_PATH_LENGTH);
+        }
+    }
+    
+    if (values.length > 0)
+    {
+        printf("Da espellere: %s\n", to_ret);
+        return to_ret;
+    }
+
+    return NULL;    
 }

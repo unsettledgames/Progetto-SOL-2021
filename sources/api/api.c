@@ -122,11 +122,13 @@ int openFile(const char* pathname, int flags)
 int writeFile(const char* pathname, const char* dirname)
 {
     // Numero di file espulsi dalla write
-    int n_expelled = 0;
+    int n_expelled;
     // Buffer per il contenuto del file
     char* write_buffer = malloc(sizeof(char) * MAX_FILE_SIZE);
     // Buffer per una singola linea del file
     char line_buffer[MAX_FILE_SIZE];
+    // Indica se il client è pronto a ricevere i file espulsi
+    int ready = 1;
     // Timestamp
     time_t timestamp;
     time(&timestamp);
@@ -144,7 +146,7 @@ int writeFile(const char* pathname, const char* dirname)
     }
 
     // Leggo il contenuto del file
-    while (fgets(line_buffer, sizeof(line_buffer), to_read) > 0)
+    while (fgets(line_buffer, sizeof(line_buffer), to_read) != NULL)
         strncat(write_buffer, line_buffer, strlen(line_buffer));
 
     // Creo una richiesta
@@ -156,12 +158,20 @@ int writeFile(const char* pathname, const char* dirname)
     to_send.timestamp = timestamp;
 
     // Invio i dati
-    write(socket_fd, &to_send, sizeof(to_send));
+    writen(socket_fd, &to_send, sizeof(to_send));
     // Ricevo il numero di file espulsi
-    read(socket_fd, &n_expelled, sizeof(int));
+    readn(socket_fd, &n_expelled, sizeof(n_expelled));
 
-    /*while (n_expelled > 0)
+    printf("N espulsi: %d\n", n_expelled);
+
+    while (n_expelled > 0)
     {
+        // Ricevo un file dal server
+        ServerResponse response;
+        readn(socket_fd, &response, sizeof(response));
+
+        printf("File espulso:\n%s\n%s\n\n", response.path, response.content);
+
         if (dirname != NULL)
         {
             // Scrivo nella cartella
@@ -170,7 +180,9 @@ int writeFile(const char* pathname, const char* dirname)
         {
             // Stampo e basta
         }
-    }*/
+
+        n_expelled--;
+    }
 
     free(write_buffer);
     // Termino
@@ -230,6 +242,8 @@ int readNFiles(int n, const char* dirname)
     // Richiesta del client
     ClientRequest request;
 
+    time(&timestamp);
+
     // Mando una richiesta
     request.flags = n;
     request.op_code = PARTIALREAD;
@@ -240,7 +254,7 @@ int readNFiles(int n, const char* dirname)
     readn(socket_fd, &to_read, sizeof(to_read));
 
     // Vado avanti finché ho da leggere
-    for (int i=0; i<to_read; i++)
+    for (int i=0; i<to_read && !must_stop; i++)
     {
         // Leggo un file
         readn(socket_fd, &response, sizeof(response));

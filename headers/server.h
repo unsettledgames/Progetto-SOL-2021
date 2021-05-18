@@ -59,3 +59,5 @@ int create_log();
 void cleanup();
 
 void print_request_node(Node* to_print);
+
+char* get_LRU(char* current_path);

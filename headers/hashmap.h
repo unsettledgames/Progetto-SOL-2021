@@ -10,6 +10,7 @@ typedef struct hashmap
 {
     List* lists;
     int size;
+    int curr_size;
     void (*printer) (Node* to_print);
 }Hashmap;
 

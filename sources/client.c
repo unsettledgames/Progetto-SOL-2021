@@ -52,11 +52,12 @@ int main(int argc, char** argv)
 int execute_requests(ClientConfig config, List* requests)
 {
     // Debug della append
+/*
     openFile("/mnt/c/Users/nicol/OneDrive/Desktop/Git projects/Progetto-SOL-2021/TestDir/file1.txt", 0);
     writeFile("/mnt/c/Users/nicol/OneDrive/Desktop/Git projects/Progetto-SOL-2021/TestDir/file1.txt", NULL);
     appendToFile("/mnt/c/Users/nicol/OneDrive/Desktop/Git projects/Progetto-SOL-2021/TestDir/file1.txt", "\nContenuto da appendere al file1\n", sizeof("\nContenuto da appendere al file1\n"), NULL);
     closeFile("/mnt/c/Users/nicol/OneDrive/Desktop/Git projects/Progetto-SOL-2021/TestDir/file1.txt");
-
+*/
     // Finché non ho esaurito le richieste
     while (requests->head != NULL)
     {

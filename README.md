@@ -11,6 +11,7 @@
   - readNFiles
 - Chiusura e pulizia
 - Flag nella openFile
+- Segnali
 - Controllo leak e accessi in memoria
 - Controllo errori
 - Funzioni opzionali
