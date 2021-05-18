@@ -260,7 +260,7 @@ int readNFiles(int n, const char* dirname)
         if (response.error_code == OK)
         {
             printf("Contenuto del file %s\n", response.path);
-            printf("%s\n\n", response.content);
+            printf("%s\n", response.content);
         }
         // Altrimenti devo fermarmi
         else

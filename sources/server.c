@@ -237,15 +237,23 @@ void* worker(void* args)
                 }
 
                 pthread_mutex_unlock(&files_mutex);
-            case WRITEFILE:
+                break;
+            case WRITEFILE:;
+                // FIle espulsi da rispedire al client
+                File* files_to_send = NULL;
                 // Prendo il file dalla tabella
                 pthread_mutex_lock(&files_mutex);
+                // File da scrivere
+                File* to_write = NULL;
+                // Dimensione del file da scrivere
+                int file_size = -1;
+
                 if (hashmap_has_key(files, request.path))
                 {
                     // Dimensione del contenuto da scrivere
-                    int file_size = strlen(request.content);
+                    file_size = strlen(request.content);
                     // Dato che esiste, prendo il file corrispondente al path
-                    File* to_write = (File*)hashmap_get(files, request.path);
+                    to_write = (File*)hashmap_get(files, request.path);
                     pthread_mutex_unlock(&files_mutex);
 
                     pthread_mutex_lock(&(to_write->lock));
@@ -255,9 +263,6 @@ void* worker(void* args)
                     {
                         if (to_write->last_op == OPENFILE && to_write->client_descriptor == request.client_descriptor)
                         {
-                            // Salvo i file così dopo li spedisco al client
-                            File* files_to_send;
-
                             // Scrivo solo se ho spazio per farlo
                             if (file_size < config.tot_space)
                             {
@@ -305,28 +310,6 @@ void* worker(void* args)
                             if (files.curr_size == config.max_files)
                                 to_send = FILE_AMOUNT_LIMIT;
                             pthread_mutex_unlock(&files_mutex);
-
-                            // Invio to_send al client
-                            writen(request.client_descriptor, &to_send, sizeof(int));
-
-                            // E invio anche i file rimossi
-                            for (int i=0; i<to_send; i++)
-                            {
-                                // Creo la risposta
-                                ServerResponse response;
-                                memcpy(response.path, files_to_send[i].path, sizeof(response.path));
-                                memcpy(response.content, files_to_send[i].content, sizeof(response.content));
-                
-                                // Invio la risposta
-                                writen(request.client_descriptor, &response, sizeof(response));
-                                printf("inviato file\n");
-                            }
-
-                            // Solo ora posso scrivere i dati inviati dal client
-                            strcpy(to_write->content, request.content);
-                            to_write->last_op = WRITEFILE;
-                            to_write->last_used = timestamp;
-                            to_write->content_size = file_size;
                         }
                         else
                             to_send = INVALID_LAST_OPERATION;
@@ -342,6 +325,28 @@ void* worker(void* args)
                     to_send = FILE_NOT_FOUND;
                     pthread_mutex_unlock(&files_mutex);
                 }
+
+                // Invio to_send al client
+                writen(request.client_descriptor, &to_send, sizeof(int));
+
+                // E invio anche i file rimossi
+                for (int i=0; i<to_send; i++)
+                {
+                    // Creo la risposta
+                    ServerResponse response;
+                    memcpy(response.path, files_to_send[i].path, sizeof(response.path));
+                    memcpy(response.content, files_to_send[i].content, sizeof(response.content));
+    
+                    // Invio la risposta
+                    writen(request.client_descriptor, &response, sizeof(response));
+                    printf("inviato file\n");
+                }
+
+                // Solo ora posso scrivere i dati inviati dal client
+                strcpy(to_write->content, request.content);
+                to_write->last_op = WRITEFILE;
+                to_write->last_used = timestamp;
+                to_write->content_size = file_size;
 
                 break;
             case APPENDTOFILE:;
@@ -414,6 +419,16 @@ void* worker(void* args)
         pthread_mutex_lock(&desc_set_lock);
         FD_SET(request.client_descriptor, &desc_set);
         pthread_mutex_unlock(&desc_set_lock);
+
+        // Stampo la lista dei file per debug
+        /*
+        pthread_mutex_lock(&files_mutex);
+        List vals = hashmap_get_values(files);
+        vals.printer = print_file_node;
+        printf("\n\n");
+        print_list(vals, "File presenti al momento");
+        pthread_mutex_unlock(&files_mutex);
+        */
     }
         
     debug++;
@@ -740,13 +755,6 @@ ServerConfig config_server()
     }   
 }
 
-void print_request_node(Node* to_print)
-{
-    ClientRequest r = *(ClientRequest*)to_print->data;
-    
-    printf("Op: %d\nContent:%s\n\n", r.op_code, r.content);
-}
-
 char* get_LRU(char* current_path)
 {
     // Timestamp iniziale, lo setto al momento attuale così sicuramente almeno un file sarà stato usato prima
@@ -774,4 +782,18 @@ char* get_LRU(char* current_path)
     if (values.length > 0)
         return to_ret;
     return NULL;    
+}
+
+void print_request_node(Node* to_print)
+{
+    ClientRequest r = *(ClientRequest*)to_print->data;
+    
+    printf("Op: %d\nContent:%s\n\n", r.op_code, r.content);
+}
+
+void print_file_node(Node* to_print)
+{
+    File r = *(File*)to_print->data;
+    
+    printf("Path: %s\nContent:%s\n\n", r.path, r.content);
 }
