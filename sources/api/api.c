@@ -127,8 +127,6 @@ int writeFile(const char* pathname, const char* dirname)
     char* write_buffer = malloc(sizeof(char) * MAX_FILE_SIZE);
     // Buffer per una singola linea del file
     char line_buffer[MAX_FILE_SIZE];
-    // Indica se il client è pronto a ricevere i file espulsi
-    int ready = 1;
     // Timestamp
     time_t timestamp;
     time(&timestamp);

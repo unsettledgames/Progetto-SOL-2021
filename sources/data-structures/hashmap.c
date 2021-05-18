@@ -115,7 +115,7 @@ void* hashmap_get(Hashmap hm, const char* key)
     curr = container.head;
 
     // Scorro finché non finisco la lista o finché non ho trovato la chiave corretta
-    while (strcmp(key, curr->key) != 0 && curr != NULL)
+    while (curr != NULL && strcmp(key, curr->key) != 0)
     {
         curr = curr->next;
     }

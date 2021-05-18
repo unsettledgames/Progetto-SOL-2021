@@ -30,6 +30,7 @@ typedef struct file
     int client_descriptor;
     int last_op;
     int is_open;
+    int content_size;
 
     time_t last_used;
 }File;

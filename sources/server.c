@@ -95,9 +95,6 @@ void* worker(void* args)
     ClientRequest request;
     // Timestamp
     time_t timestamp;
-    // Variabile temporanea
-    int tmp;
-
     while (TRUE)
     {
         // Return value
@@ -267,15 +264,13 @@ void* worker(void* args)
                                 // Aggiorno lo spazio allocato dai file
                                 pthread_mutex_lock(&allocated_space_mutex);
                                 allocated_space += file_size;
-                                
+
                                 // Se non posso tenere altri file in cache, ne rimuovo finché non ho 
                                 // spazio disponibile
                                 pthread_mutex_lock(&files_mutex);
 
                                 // Nel peggiore dei casi, i file da spedire indietro sono tutti (TODO: usare una lista)
                                 files_to_send = malloc(sizeof(File) * files.curr_size);
-
-                                printf("Alloc space: %d\n", allocated_space);
 
                                 while (allocated_space > config.tot_space && to_send >= 0)
                                 {
@@ -290,11 +285,11 @@ void* worker(void* args)
                                         memcpy(&(files_to_send[n_expelled]), LRUed, sizeof(*LRUed));
 
                                         // Aggiorno lo spazio e rimuovo il file
-                                        allocated_space -= strlen(LRUed->content);
+                                        allocated_space -= LRUed->content_size;
                                         hashmap_remove(&files, to_remove);
                                         
                                         to_send++;
-                                        printf("\nHo espulso %s\n\n", to_remove);
+                                        printf("\nHo espulso %s\nTosend: %d\n", to_remove, to_send);
                                     }
                                     // Altrimenti ho fallito e non posso aggiungere il file
                                     else
@@ -314,30 +309,28 @@ void* worker(void* args)
                             // Invio to_send al client
                             writen(request.client_descriptor, &to_send, sizeof(int));
 
-                            if (to_send < 0)
+                            printf("Al client invio %d\n", to_send);
+                            // Invio al client il numero di file tolti tramite LRU
+                            writen(request.client_descriptor, &to_send, sizeof(int));
+
+                            // E invio anche i file rimossi
+                            for (int i=0; i<to_send; i++)
                             {
-                                printf("Al client invio %d\n", to_send);
-                                // Altrimenti invio al client il numero di file tolti tramite LRU
-                                writen(request.client_descriptor, &to_send, sizeof(int));
-
-                                // E invio anche i file rimossi
-                                for (int i=0; i<to_send; i++)
-                                {
-                                    // Creo la risposta
-                                    ServerResponse response;
-                                    memcpy(response.path, files_to_send[i].path, sizeof(response.path));
-                                    memcpy(response.content, files_to_send[i].content, sizeof(response.content));
-                    
-                                    // Invio la risposta
-                                    writen(request.client_descriptor, &response, sizeof(response));
-                                    printf("inviato file\n");
-                                }
-
-                                // Solo ora posso scrivere i dati inviati dal client
-                                strcpy(to_write->content, request.content);
-                                to_write->last_op = WRITEFILE;
-                                to_write->last_used = timestamp;
+                                // Creo la risposta
+                                ServerResponse response;
+                                memcpy(response.path, files_to_send[i].path, sizeof(response.path));
+                                memcpy(response.content, files_to_send[i].content, sizeof(response.content));
+                
+                                // Invio la risposta
+                                writen(request.client_descriptor, &response, sizeof(response));
+                                printf("inviato file\n");
                             }
+
+                            // Solo ora posso scrivere i dati inviati dal client
+                            strcpy(to_write->content, request.content);
+                            to_write->last_op = WRITEFILE;
+                            to_write->last_used = timestamp;
+                            to_write->content_size = file_size;
                         }
                         else
                             to_send = INVALID_LAST_OPERATION;
@@ -770,14 +763,15 @@ char* get_LRU(char* current_path)
     // Ottengo tutti i file nella tabella
     List values = hashmap_get_values(files);
 
-    memset(to_ret, 0, sizeof(to_ret));
+    memset(to_ret, 0, MAX_PATH_LENGTH);
+    time(&timestamp);
     
     // Ciclo tra i file
     for (int i=0; i<values.length; i++)
     {
         File* curr_file = (File*)list_get(values, i);
 
-        if (curr_file->last_used < timestamp && strcmp(curr_file->path, current_path) != 0)
+        if (curr_file->last_used <= timestamp && strcmp(curr_file->path, current_path) != 0)
         {
             timestamp = curr_file->last_used;
             strncpy(to_ret, curr_file->path, MAX_PATH_LENGTH);
@@ -785,10 +779,6 @@ char* get_LRU(char* current_path)
     }
     
     if (values.length > 0)
-    {
-        printf("Da espellere: %s\n", to_ret);
         return to_ret;
-    }
-
     return NULL;    
 }
