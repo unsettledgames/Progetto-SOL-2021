@@ -9,6 +9,7 @@
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <stdio.h>
+#include <string.h>
 
 #include "errors.h"
 
@@ -21,5 +22,7 @@ void* my_malloc(size_t size);
 ssize_t writen(int fd, void *ptr, size_t n);
 
 ssize_t readn(int fd, void *ptr, size_t n);
+
+char* replace_char(char* str, char find, char replace);
 
 #endif

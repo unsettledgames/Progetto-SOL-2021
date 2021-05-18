@@ -286,6 +286,13 @@ int appendToFile(const char* pathname, void* buf, size_t size, const char* dirna
 int handle_expelled_files(int to_read, const char* dirname)
 {
     int err = 0;
+    char expelled_path[MAX_PATH_LENGTH + 20];
+    char curr_path[MAX_PATH_LENGTH];
+
+    expelled_path[0] = 'E';
+    expelled_path[1] = '-';
+
+    getcwd(curr_path, MAX_PATH_LENGTH);
 
     while (to_read > 0 && err >= 0)
     {
@@ -293,23 +300,49 @@ int handle_expelled_files(int to_read, const char* dirname)
         ServerResponse response;
         err = readn(socket_fd, &response, sizeof(response));
 
-        if (err > 0)
+        if (err > 0 && response.error_code == OK)
         {
             if (dirname != NULL)
             {
+                // Controllo che la cartella esista
+                errno = 0;
+                DIR* my_dir = opendir(dirname);
+
+                // Se non esiste la creo
+                if (!my_dir || (errno == ENOENT))
+                {
+                    if (mkdir(dirname, 0777) != 0)
+                        return CREATE_DIR_ERROR;
+                }
+                else
+                    closedir(my_dir);
+
+                // Mi sposto nella cartella
+                chdir(dirname);
+                // Aggiungo 'expelled' al nome del file espulso
+                strncpy(&expelled_path[2], response.path, MAX_PATH_LENGTH);
+                replace_char(expelled_path, '/', '-');
                 // Scrivo nella cartella
+                FILE* file = fopen(expelled_path, "w");
+                printf("Path: %s\n", expelled_path);
+                if (fwrite(response.content, sizeof(char), sizeof(response.content), file) <= 0)
+                    return WRITE_FILE_ERROR;
+                fclose(file);
+                
             }
             else
-            {
                 // Stampo e basta
                 printf("File espulso:\n%s\n%s\n\n", response.path, response.content);
-            }
         }
         else
             err = EXPELLED_FILE_FAILED;
 
         to_read--;
     }
+
+    // Mi risposto nella cartella originaria se dirname != NULL
+    if (dirname != NULL)
+        chdir(curr_path);
 
     if (err > 0)
         err = 0;

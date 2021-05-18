@@ -17,6 +17,8 @@
 
 #define OPEN_FAILED             -203
 #define EXPELLED_FILE_FAILED    -204
+#define CREATE_DIR_ERROR        -205
+#define WRITE_FILE_ERROR        -206
 
 // SERVER ERRORS
 

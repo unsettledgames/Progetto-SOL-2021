@@ -339,6 +339,8 @@ void* worker(void* args)
                 {
                     // Creo la risposta
                     ServerResponse response;
+
+                    response.error_code = 0;
                     memcpy(response.path, files_to_send[i].path, sizeof(response.path));
                     memcpy(response.content, files_to_send[i].content, sizeof(response.content));
     
@@ -418,6 +420,8 @@ void* worker(void* args)
                     {
                         // Creo la risposta
                         ServerResponse response;
+
+                        response.error_code = 0;
                         memcpy(response.path, files_to_send[i].path, sizeof(response.path));
                         memcpy(response.content, files_to_send[i].content, sizeof(response.content));
         

@@ -3,7 +3,6 @@
 ## TODO LIST
 
 - Aggiunta delle funzioni di caching nelle API (restituzione e salvatagio file espulsi)
-  - appendToFile
   - readFile
   - readNFiles
 - Chiusura e pulizia
