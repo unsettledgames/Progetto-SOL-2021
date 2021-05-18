@@ -309,10 +309,6 @@ void* worker(void* args)
                             // Invio to_send al client
                             writen(request.client_descriptor, &to_send, sizeof(int));
 
-                            printf("Al client invio %d\n", to_send);
-                            // Invio al client il numero di file tolti tramite LRU
-                            writen(request.client_descriptor, &to_send, sizeof(int));
-
                             // E invio anche i file rimossi
                             for (int i=0; i<to_send; i++)
                             {
@@ -346,9 +342,6 @@ void* worker(void* args)
                     to_send = FILE_NOT_FOUND;
                     pthread_mutex_unlock(&files_mutex);
                 }
-
-                // Invio della risposta
-                writen(request.client_descriptor, &to_send, sizeof(to_send));
 
                 break;
             case APPENDTOFILE:;
