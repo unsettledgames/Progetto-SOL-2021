@@ -176,6 +176,7 @@ int writeFile(const char* pathname, const char* dirname)
 
 int readFile(const char* pathname, void** buf, size_t* size)
 {
+    printf("Entrato\n");
     // Timestamp
     time_t timestamp;
     // Creo la richiesta

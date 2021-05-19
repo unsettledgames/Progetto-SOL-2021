@@ -150,9 +150,10 @@ int execute_requests(ClientConfig config, List* requests)
                     char curr_path[MAX_PATH_LENGTH];
 
                     char* real_path = get_absolute_path(args[i]);
-                    char* file_buffer = malloc(sizeof(char) * MAX_FILE_SIZE);
-                    memset(file_buffer, 0, MAX_FILE_SIZE);
                     size_t n_to_read = MAX_FILE_SIZE;
+                    char* file_buffer = malloc(sizeof(char) * MAX_FILE_SIZE);
+
+                    memset(file_buffer, 0, MAX_FILE_SIZE);
 
                     write_path[0] = 'E';
                     getcwd(curr_path, MAX_PATH_LENGTH);
@@ -165,7 +166,7 @@ int execute_requests(ClientConfig config, List* requests)
                     else
                     {
                         // Leggo il file dal server
-                        readFile(real_path, (void**)&file_buffer, &n_to_read);
+                        readFile(real_path, (void**)(&file_buffer), &n_to_read);
 
                         // Controllo se devo scriverlo in una cartella
                         if (config.read_dir != NULL)
@@ -198,6 +199,7 @@ int execute_requests(ClientConfig config, List* requests)
                     }
 
                     free(file_buffer);
+                    free(real_path);
                     i++;
                 }
 

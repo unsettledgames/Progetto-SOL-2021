@@ -299,7 +299,6 @@ int list_contains_string(List list, const char* str)
     {
         if (curr->data != NULL && strcmp((char*)(curr->data), str) == 0)
         {
-            printf("Comparo %s con %s\n", curr->data, str);
             return i;
         }
 
