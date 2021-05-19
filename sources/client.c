@@ -207,6 +207,7 @@ int execute_requests(ClientConfig config, List* requests)
                 int to_read = string_to_int(args[0], FALSE);                
 
                 readNFiles(to_read, config.read_dir);
+                free(curr_request->arguments);
                 break;
             case 'l':
                 // Ogni file su cui abilitare la lock è una stringa nell'array di argomenti
@@ -522,6 +523,7 @@ int parse_options(Hashmap* config, List* requests, int n_args, char** args)
                     sprintf(opt_value, "%s", optarg);
                 else
                     sprintf(opt_value, "-1");
+                
                 curr_request->code = 'R';
                 curr_request->arguments = opt_value;
                 // Metto R in coda come operazione

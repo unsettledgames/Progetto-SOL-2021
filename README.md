@@ -25,6 +25,7 @@
 - Come distinguo tra un path assoluto e uno relativo? E' sufficiente supporre che tutti i path passati da linea di comando siano assoluti?
   - Idea interessante: quando apro un file che non esiste, creo una versione temporanea nel path specificato dall'utente, così poi può riaccederci quando vuole usando il path relativo. 
   - Altra idea interessante per i path: se realpath ritorna NULL, provo comunque l'accesso usando il path locale
+- Penso di non aver idea del perché la list_contains_string funzioni
 
 ### ERROR CHECKING
 - Error checking nelle strutture dati
