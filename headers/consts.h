@@ -5,4 +5,4 @@
 
 #define MAX_TIME_LENGTH     40
 #define MAX_PATH_LENGTH     128
-#define MAX_FILE_SIZE       100000
+#define MAX_FILE_SIZE       1000000

@@ -277,24 +277,11 @@ int handle_expelled_files(int to_read, const char* dirname)
 
     getcwd(curr_path, MAX_PATH_LENGTH);
 
-    if (dirname != NULL)
-    {
-        // Controllo che la cartella esista
-        errno = 0;
-        DIR* my_dir = opendir(dirname);
-
-        // Se non esiste la creo
-        if (!my_dir || (errno == ENOENT))
-        {
-            if (mkdir(dirname, 0777) != 0)
-                return CREATE_DIR_ERROR;
-        }
-        else
-            closedir(my_dir);
-
+    if (dirname != NULL && strcmp(dirname, "") != 0 && create_dir_if_not_exists(dirname) == 0)
         // Mi sposto nella cartella
         chdir(dirname);
-    }
+    else if (dirname != NULL && strcmp(dirname, "") != 0)
+        return CREATE_DIR_ERROR;
 
     while (to_read > 0 && err >= 0)
     {
@@ -310,7 +297,7 @@ int handle_expelled_files(int to_read, const char* dirname)
                 strncpy(&expelled_path[1], response.path, MAX_PATH_LENGTH);
                 replace_char(expelled_path, '/', '-');
                 // Scrivo nella cartella
-                FILE* file = fopen(expelled_path, "w");
+                FILE* file = fopen(expelled_path, "wb");
                 printf("Path: %s\n", expelled_path);
                 if (fwrite(response.content, sizeof(char), sizeof(response.content), file) <= 0)
                     return WRITE_FILE_ERROR;

@@ -4,12 +4,11 @@
 
 - Aggiunta delle funzioni di caching nelle API (restituzione e salvatagio file espulsi)
   - readFile
-  - readNFiles
-- Chiusura e pulizia
-- Flag nella openFile
 - Segnali
-- Controllo leak e accessi in memoria
+- Flag nella openFile
 - Conversione da file testuali a binari
+- Chiusura e pulizia
+- Controllo leak e accessi in memoria
   - Flag rb nell'apertura e nella scrittura dei file
   - Verifica che le funzioni sulle stringhe continuino a funzionare
   - Passaggio della dimensione dei file da parte delle api

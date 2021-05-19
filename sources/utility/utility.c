@@ -72,11 +72,36 @@ ssize_t writen(int fd, void *ptr, size_t n)
    return(n - nleft); /* return >= 0 */
 }
 
-char* replace_char(char* str, char find, char replace) {
+char* replace_char(char* str, char find, char replace) 
+{
     char *current_pos = strchr(str,find);
-    while (current_pos) {
+    while (current_pos) 
+    {
         *current_pos = replace;
         current_pos = strchr(current_pos,find);
     }
     return str;
+}
+
+int create_dir_if_not_exists(const char* dirname)
+{
+    if (dirname != NULL)
+    {
+        // Controllo che la cartella esista
+        errno = 0;
+        DIR* my_dir = opendir(dirname);
+
+        // Se non esiste la creo
+        if (!my_dir || (errno == ENOENT))
+        {
+            if (mkdir(dirname, 0777) != 0)
+                return CREATE_DIR_ERROR;
+        }
+        else
+            closedir(my_dir);
+        
+        return OK;
+    }
+
+    return NULL_PARAM;
 }

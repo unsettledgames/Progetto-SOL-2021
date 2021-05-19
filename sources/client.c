@@ -144,10 +144,16 @@ int execute_requests(ClientConfig config, List* requests)
 
                 while (args[i] != NULL)
                 {
+                    char write_path[MAX_PATH_LENGTH * 2];
+                    char curr_path[MAX_PATH_LENGTH];
+
                     char* real_path = get_absolute_path(args[i]);
                     char* file_buffer = malloc(sizeof(char) * MAX_FILE_SIZE);
                     memset(file_buffer, 0, MAX_FILE_SIZE);
                     size_t n_to_read = MAX_FILE_SIZE;
+
+                    write_path[0] = 'E';
+                    getcwd(curr_path, MAX_PATH_LENGTH);
 
                     if (real_path == NULL)
                         return FILE_NOT_FOUND;
@@ -156,7 +162,31 @@ int execute_requests(ClientConfig config, List* requests)
                         fprintf(stderr, "Impossibile aprire il file %s, operazione annullata.\n", real_path);
                     else
                     {
+                        // Leggo il file dal server
                         readFile(real_path, (void**)&file_buffer, &n_to_read);
+
+                        // Controllo se devo scriverlo in una cartella
+                        if (config.read_dir != NULL)
+                        {
+                            // Creo la cartella se non esiste
+                            if (create_dir_if_not_exists(config.read_dir) == 0)
+                            {
+                                chdir(config.read_dir);
+                                
+                                // Aggiungo 'expelled' al nome del file espulso
+                                strncpy(&write_path[1], (char*)real_path, MAX_PATH_LENGTH);
+                                replace_char(write_path, '/', '-');
+                                // Scrivo nella cartella
+                                FILE* file = fopen(write_path, "wb");
+                                printf("Path: %s\nContent:%s\n", write_path, file_buffer);
+                                if (fwrite(file_buffer, sizeof(char), n_to_read, file) <= 0)
+                                    return WRITE_FILE_ERROR;
+                                fclose(file);
+                            }
+                            else
+                                perror("Impossibile scrivere il file letto nella cartella");
+                        }
+
                         printf("Contenuto del file %s\n", real_path);
                         printf("%s\n\n", file_buffer);
                         closeFile(real_path);
@@ -404,7 +434,6 @@ void print_client_config(ClientConfig to_print)
     printf("Stampa dei dati delle operazioni: %d\n", to_print.print_op_data);
    
 }
-
 
 int parse_options(Hashmap* config, List* requests, int n_args, char** args)
 {

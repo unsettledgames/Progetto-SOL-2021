@@ -25,4 +25,6 @@ ssize_t readn(int fd, void *ptr, size_t n);
 
 char* replace_char(char* str, char find, char replace);
 
+int create_dir_if_not_exists(const char* dirname);
+
 #endif

@@ -2,7 +2,8 @@
 
  #define ERRORS_H_
 
- #define OK 0
+ #define OK         0
+ #define NULL_PARAM 1
 
 // CLIENT errors
 
