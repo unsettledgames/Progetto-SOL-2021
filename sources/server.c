@@ -114,6 +114,12 @@ int main(int argc, char** argv)
         pthread_join(dispatcher_tid, NULL);
         // Aspetto che il master finisca
         pthread_join(connession_handler_tid, NULL);
+
+        // Aspetto che i worker finiscano
+        for (int i=0; i<config.n_workers; i++)
+        {
+            pthread_join(tids[i], NULL);
+        }
     }
     else
     {
@@ -226,6 +232,7 @@ void* worker(void* args)
                 break;
             case READFILE:;
                 ServerResponse response;
+                memset(&response, 0, sizeof(response));
 
                 pthread_mutex_lock(&files_mutex);
                 if (hashmap_has_key(files, request.path))
@@ -345,7 +352,7 @@ void* worker(void* args)
                                         hashmap_remove(&files, to_remove);
                                         
                                         to_send++;
-                                        printf("\nHo espulso %s\nTosend: %d\n", to_remove, to_send);
+                                        free(to_remove);
                                     }
                                     // Altrimenti ho fallito e non posso aggiungere il file
                                     else
@@ -385,6 +392,7 @@ void* worker(void* args)
                 {
                     // Creo la risposta
                     ServerResponse response;
+                    memset(&response, 0, sizeof(ServerResponse));
 
                     response.error_code = 0;
                     memcpy(response.path, files_to_send[i].path, sizeof(response.path));
@@ -392,7 +400,6 @@ void* worker(void* args)
     
                     // Invio la risposta
                     writen(request.client_descriptor, &response, sizeof(response));
-                    printf("inviato file\n");
                 }
 
                 // Solo ora posso scrivere i dati inviati dal client
@@ -447,6 +454,8 @@ void* worker(void* args)
                             }
                             else
                                 to_send = LRU_FAILURE;
+                            if (expelled_path != NULL)
+                                free(expelled_path);
                         }
                     }
                     pthread_mutex_unlock(&allocated_space_mutex);
@@ -904,27 +913,25 @@ char* get_LRU(char* current_path)
     time_t timestamp;
     // Path del file da eliminare
     char* to_ret = malloc(sizeof(char) * MAX_PATH_LENGTH);
-    // Ottengo tutti i file nella tabella
-    List values = hashmap_get_values(files);
 
     memset(to_ret, 0, MAX_PATH_LENGTH);
     time(&timestamp);
-    
-    // Ciclo tra i file
-    for (int i=0; i<values.length; i++)
-    {
-        File* curr_file = (File*)list_get(values, i);
 
-        if (curr_file->last_used <= timestamp && strcmp(curr_file->path, current_path) != 0)
+    for (int i=0; i<files.size; i++)
+    {
+        for (int j=0; j<files.lists[i].length; j++)
         {
-            timestamp = curr_file->last_used;
-            strncpy(to_ret, curr_file->path, MAX_PATH_LENGTH);
+            File* curr_file = (File*)list_get(files.lists[i], j);
+
+            if (curr_file->last_used <= timestamp && strcmp(curr_file->path, current_path) != 0)
+            {
+                timestamp = curr_file->last_used;
+                strncpy(to_ret, curr_file->path, MAX_PATH_LENGTH);
+            }
         }
     }
-    
-    if (values.length > 0)
-        return to_ret;
-    return NULL;    
+
+    return to_ret;
 }
 
 void print_request_node(Node* to_print)
@@ -963,8 +970,24 @@ static void sighandler(int param)
             }
 
             // Interrompo dispatcher, worker e accepters
-            pthread_kill(dispatcher_tid, SIGINT);
-            pthread_kill(connession_handler_tid, SIGINT);
+            /*pthread_cancel(connession_handler_tid);
+            pthread_cancel(dispatcher_tid);
+
+            for (int i=0; i<config.n_workers; i++)
+            {
+                pthread_cancel(tids[i]);
+            }*/
+
+            // Aspetto che il dispatcher finisca
+            pthread_join(dispatcher_tid, NULL);
+            // Aspetto che il master finisca
+            pthread_join(connession_handler_tid, NULL);
+
+            // Aspetto che i worker finiscano
+            for (int i=0; i<config.n_workers; i++)
+            {
+                pthread_join(tids[i], NULL);
+            }
 
             // Pulisco tutte le strutture dati
             fclose(log_file);

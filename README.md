@@ -1,7 +1,7 @@
 # Progetto-SOL-2021
 
 ## TODO LIST
-- Controllo leak e accessi in memoria (impegnativa, in corso)
+- Controllo leak e accessi in memoria (impegnativa, manca il server)
 
 - Timer nelle richieste (facile)
 - Flag nella openFile (media)
