@@ -6,3 +6,4 @@
 #define MAX_TIME_LENGTH     40
 #define MAX_PATH_LENGTH     128
 #define MAX_FILE_SIZE       1000000
+#define EXTRA_LEN_PRINT_ERROR   512

@@ -9,6 +9,7 @@
 #include <sys/un.h>
 #include <sys/select.h>
 #include <pthread.h>
+#include <signal.h>
 
 #include "nodes.h"
 #include "list.h"
@@ -64,3 +65,5 @@ void print_request_node(Node* to_print);
 void print_file_node(Node* to_print);
 
 char* get_LRU(char* current_path);
+
+static void sighandler(int param);

@@ -1,5 +1,8 @@
 #include "server.h"
 
+// Uscita dal programma
+volatile sig_atomic_t must_stop = 0;
+
 // File di log con la sua lock
 FILE* log_file = NULL;
 pthread_mutex_t log_mutex = PTHREAD_MUTEX_INITIALIZER;
@@ -41,6 +44,35 @@ ServerConfig config;
 
 int main(int argc, char** argv)
 {
+    // Maschero i segnali
+    // Maschero i segnali
+    sigset_t mask, oldmask;
+    sigemptyset(&mask);   
+    sigaddset(&mask, SIGINT); 
+    sigaddset(&mask, SIGQUIT);
+    sigaddset(&mask, SIGHUP);
+
+    if (pthread_sigmask(SIG_BLOCK, &mask,&oldmask) != 0) {
+        fprintf(stderr, "Impossibile impostare la maschera dei segnali");
+        return EXIT_FAILURE;
+    }
+    // Registro il gestore dei segnali
+    struct sigaction sa;
+    memset (&sa, 0, sizeof(sa));   
+    // Assegno la funzione
+    sa.sa_handler = sighandler;
+    int notused;
+    // Modifico l'azione di default
+    SYSCALL_EXIT("sigaction", notused, sigaction(SIGINT, &sa, NULL), "sigaction", "");
+    SYSCALL_EXIT("sigaction", notused, sigaction(SIGQUIT, &sa, NULL), "sigaction", "");
+    SYSCALL_EXIT("sigaction", notused, sigaction(SIGHUP, &sa, NULL), "sigaction", "");
+
+    if (pthread_sigmask(SIG_SETMASK, &oldmask, NULL) != 0) 
+    {
+        fprintf(stderr, "FATAL ERROR\n");
+        return EXIT_FAILURE;
+    }
+
     // Inizializzazione delle strutture dati necessarie
     list_initialize(&requests, print_request_node);
     list_initialize(&client_fds, NULL);
@@ -91,6 +123,18 @@ int main(int argc, char** argv)
 
 void* worker(void* args)
 {
+    // Maschero i segnali
+    sigset_t mask, oldmask;
+    sigemptyset(&mask);   
+    sigaddset(&mask, SIGINT); 
+    sigaddset(&mask, SIGQUIT);
+    sigaddset(&mask, SIGHUP);
+
+    if (pthread_sigmask(SIG_BLOCK, &mask,&oldmask) != 0) {
+        fprintf(stderr, "Impossibile impostare la maschera dei segnali");
+        return EXIT_FAILURE;
+    }
+
     // Salvataggio della richiesta
     ClientRequest request;
     // Timestamp
@@ -872,4 +916,15 @@ void print_file_node(Node* to_print)
     File r = *(File*)to_print->data;
     
     printf("Path: %s\nContent:%s\n\n", r.path, r.content);
+}
+
+static void sighandler(int param)
+{
+    printf("Chiamato\n");
+    exit(EXIT_FAILURE);
+    // SIGINT, SIGQUIT
+        // Kill everybody immediately
+    // SIGHUP
+        // Imposta must_stop a true
+        // Inserire must_stop nella condizione dei while dei thread
 }
