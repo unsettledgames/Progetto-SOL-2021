@@ -37,6 +37,10 @@ pthread_mutex_t desc_set_lock = PTHREAD_MUTEX_INITIALIZER;
 int max_fd = -1;
 pthread_mutex_t max_fd_lock = PTHREAD_MUTEX_INITIALIZER;
 
+// Handlers
+pthread_t connession_handler_tid;
+pthread_t dispatcher_tid;
+
 int debug = 0;
 
 // Configurazione del server, globale per essere vista dalla cleanup
@@ -44,7 +48,6 @@ ServerConfig config;
 
 int main(int argc, char** argv)
 {
-    // Maschero i segnali
     // Maschero i segnali
     sigset_t mask, oldmask;
     sigemptyset(&mask);   
@@ -86,9 +89,9 @@ int main(int argc, char** argv)
     if (errno == 0)
     {
         // Tid del thread che gestisce le connessioni
-        pthread_t connession_handler_tid = -1;
+        connession_handler_tid = -1;
         // Tid del thread che smista le richieste
-        pthread_t dispatcher_tid = -1;
+        dispatcher_tid = -1;
 
         socket_desc = initialize_socket();
         create_log();
@@ -115,9 +118,8 @@ int main(int argc, char** argv)
     else
     {
         perror("Impossibile terminare la configurazione del server.\n");
-        return CONFIG_FILE_ERROR;
+        exit(CONFIG_FILE_ERROR);
     }
-
     return 0;
 }
 
@@ -132,14 +134,14 @@ void* worker(void* args)
 
     if (pthread_sigmask(SIG_BLOCK, &mask,&oldmask) != 0) {
         fprintf(stderr, "Impossibile impostare la maschera dei segnali");
-        return EXIT_FAILURE;
+        exit(EXIT_FAILURE);
     }
 
     // Salvataggio della richiesta
     ClientRequest request;
     // Timestamp
     time_t timestamp;
-    while (TRUE)
+    while (!must_stop)
     {
         // Return value
         int to_send = 0;        
@@ -559,10 +561,21 @@ void* worker(void* args)
 
 void* dispatcher(void* args)
 {
+    // Maschero i segnali
+    sigset_t mask, oldmask;
+    sigemptyset(&mask);   
+    sigaddset(&mask, SIGINT); 
+    sigaddset(&mask, SIGQUIT);
+    sigaddset(&mask, SIGHUP);
+
+    if (pthread_sigmask(SIG_BLOCK, &mask,&oldmask) != 0) {
+        perror("Impossibile impostare la maschera dei segnali");
+        exit(EXIT_FAILURE);
+    }
     // Read set, è locale e serve solo al dispatcher
     fd_set read_set;
 
-    while (TRUE)
+    while (!must_stop)
     {
         FD_ZERO(&read_set);
         // Salvo il numero massimo dei fd
@@ -648,6 +661,18 @@ void* dispatcher(void* args)
 
 void* connession_handler(void* args)
 {
+    // Maschero i segnali
+    sigset_t mask, oldmask;
+    sigemptyset(&mask);   
+    sigaddset(&mask, SIGINT); 
+    sigaddset(&mask, SIGQUIT);
+    sigaddset(&mask, SIGHUP);
+
+    if (pthread_sigmask(SIG_BLOCK, &mask,&oldmask) != 0) {
+        fprintf(stderr, "Impossibile impostare la maschera dei segnali");
+        exit(EXIT_FAILURE);
+    }
+
     // Informazioni del client
     struct sockaddr client_info;
     socklen_t client_addr_length = sizeof(client_info);
@@ -655,7 +680,7 @@ void* connession_handler(void* args)
     int* client_fd = malloc(sizeof(int));
     char* key = malloc(sizeof(char) * 20);
 
-    while (TRUE)
+    while (!must_stop)
     {
         // Attendo una richiesta di connessione
         if ((*client_fd = accept(socket_desc, &client_info, &client_addr_length)) > 0)
@@ -735,8 +760,6 @@ int initialize_socket()
 {
     // Pulisco eventuali socket precedenti
     cleanup(config.socket_name);
-    // Registro il cleanup come evento di uscita
-    atexit(cleanup);
 
     // Creo il socket
     int socket_desc = socket(AF_UNIX, SOCK_STREAM, 0);
@@ -920,11 +943,51 @@ void print_file_node(Node* to_print)
 
 static void sighandler(int param)
 {
-    printf("Chiamato\n");
-    exit(EXIT_FAILURE);
-    // SIGINT, SIGQUIT
-        // Kill everybody immediately
-    // SIGHUP
-        // Imposta must_stop a true
-        // Inserire must_stop nella condizione dei while dei thread
+    printf("Chiamato %d\n %d\n", param, must_stop);
+    if (!must_stop)
+    {
+        // Segnalo che ho terminato
+        must_stop = TRUE;
+
+        if (param == SIGINT || param == SIGQUIT)
+        {
+            // Creo le statistiche
+            // Pulisco immediatamente
+            
+            // Chiudo tutte le connessioni
+            Node* curr = client_fds.head;
+            while (curr != NULL)
+            {
+                close(*((int*)curr->data));
+                curr = curr->next;
+            }
+
+            // Interrompo dispatcher, worker e accepters
+            pthread_kill(dispatcher_tid, SIGINT);
+            pthread_kill(connession_handler_tid, SIGINT);
+
+            // Pulisco tutte le strutture dati
+            fclose(log_file);
+            printf("log chiuso\n");
+            // Lista dei client
+            list_clean(client_fds, NULL);
+            printf("client puliti\n");
+            // Coda richieste
+            list_clean(requests, NULL);
+            printf("richieste puliti\n");
+            // Tabella dei file
+            hashmap_clean(files, NULL);
+            printf("file puliti\n");
+            // Tids
+            free(tids);
+            printf("tids puliti\n");
+            // Elimino il socket
+            unlink(config.socket_name);
+
+            // Segnalo che ho terminato
+            must_stop = TRUE;
+            // Esco      
+            exit(EXIT_FAILURE);
+        }
+    }
 }

@@ -3,7 +3,7 @@
 
 # Opzioni di compilazione
 CC = gcc
-GENERIC_FLAGS = -Wall -pedantic -lpthread -g
+GENERIC_FLAGS = -Wall -pedantic -lpthread -g -fsanitize=address -fno-omit-frame-pointer
 THREAD_FLAGS = -lpthread
 INCLUDES = -I./headers
 

@@ -1,21 +1,21 @@
 # Progetto-SOL-2021
 
 ## TODO LIST
-- Segnali
-- Timer nelle richieste
-- Flag nella openFile
-- Conversione da file testuali a binari
-- Chiusura e pulizia
-- Controllo leak e accessi in memoria
-  - Flag rb nell'apertura e nella scrittura dei file
-  - Verifica che le funzioni sulle stringhe continuino a funzionare
-  - Passaggio della dimensione dei file da parte delle api
-- Controllo errori
+- Segnali (media, in corso)
+- Timer nelle richieste (facile)
+- Flag nella openFile (media)
+- Conversione da file testuali a binari (delicata)
+  - Flag rb nell'apertura e nella scrittura dei file (facile)
+  - Verifica che le funzioni sulle stringhe continuino a funzionare (media)
+  - Passaggio della dimensione dei file da parte delle api (facile)
+- Chiusura e pulizia (impegnativa)
+- Controllo leak e accessi in memoria (impegnativa)
+- Controllo errori (delicata)
 - Funzioni opzionali
-  - Logging
-  - Compressione
-  - test3
-- Polish se resta tempo
+  - Logging (facile)
+  - Compressione (da valutare)
+  - test3 (da valutare)
+- Polish se resta tempo (delicato)
 
 ### COSE PREOCCUPANTI
 - A un certo punto abstime andrà settato in maniera corretta (parsing di date da linea di comando?)
