@@ -1,9 +1,6 @@
 # Progetto-SOL-2021
 
 ## TODO LIST
-
-- Aggiunta delle funzioni di caching nelle API (restituzione e salvatagio file espulsi)
-  - readFile
 - Segnali
 - Flag nella openFile
 - Conversione da file testuali a binari
@@ -17,13 +14,13 @@
   - Logging
   - Compressione
   - test3
-  - -D
 - Polish se resta tempo
 
 ### COSE PREOCCUPANTI
 - A un certo punto abstime andrà settato in maniera corretta (parsing di date da linea di comando?)
 - Come distinguo tra un path assoluto e uno relativo? E' sufficiente supporre che tutti i path passati da linea di comando siano assoluti?
-- - Idea interessante: quando apro un file che non esiste, creo una versione temporanea nel path specificato dall'utente, così poi può riaccederci quando vuole usando il path relativo. 
+  - Idea interessante: quando apro un file che non esiste, creo una versione temporanea nel path specificato dall'utente, così poi può riaccederci quando vuole usando il path relativo. 
+  - Altra idea interessante per i path: se realpath ritorna NULL, provo comunque l'accesso usando il path locale
 
 ### ERROR CHECKING
 - Error checking nelle strutture dati
