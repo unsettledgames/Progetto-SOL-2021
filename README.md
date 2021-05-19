@@ -1,21 +1,22 @@
 # Progetto-SOL-2021
 
 ## TODO LIST
-- Segnali (media, in corso)
+- Controllo leak e accessi in memoria (impegnativa, in corso)
+
 - Timer nelle richieste (facile)
 - Flag nella openFile (media)
 - Conversione da file testuali a binari (delicata)
   - Flag rb nell'apertura e nella scrittura dei file (facile)
   - Verifica che le funzioni sulle stringhe continuino a funzionare (media)
   - Passaggio della dimensione dei file da parte delle api (facile)
-- Chiusura e pulizia (impegnativa)
-- Controllo leak e accessi in memoria (impegnativa)
 - Controllo errori (delicata)
 - Funzioni opzionali
   - Logging (facile)
   - Compressione (da valutare)
   - test3 (da valutare)
+- Passaggio nome del file di configurazione da linea di comando al server
 - Polish se resta tempo (delicato)
+- Controllo finale leak e accessi in memoria (media)
 
 ### COSE PREOCCUPANTI
 - A un certo punto abstime andrà settato in maniera corretta (parsing di date da linea di comando?)
@@ -35,6 +36,7 @@
 - Commenti alle funzioni nelle strutture dati
 
 #### POLISH:
+- Sostituire alle combinazioni di malloc e memset una calloc
 - Dividere funzioni che svolgono compiti relativi a domini simili in librerie
 - Se gli errori vanno gestiti a cascata e basta una exit(EXIT_FAILURE) per gestirli, allora potrebbe 
   essere utile mettere certe funzioni in wrappers che gestiscano gli errori in modo autonomo per rendere

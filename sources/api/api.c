@@ -83,6 +83,7 @@ int closeConnection(const char* sockname)
     time_t timestamp;
     int reply;
 
+    memset(&to_send, 0, sizeof(to_send));
     time(&timestamp);
     to_send.op_code = CLOSECONNECTION;
     to_send.timestamp = timestamp;
@@ -104,9 +105,10 @@ int openFile(const char* pathname, int flags)
     time_t timestamp;
     int reply = 0;
 
+    memset(&to_send, 0, sizeof(to_send));
     time(&timestamp);
 
-    strcpy(to_send.path, pathname);
+    memcpy(to_send.path, pathname, strlen(pathname) + 1);
     to_send.content_size = strlen(pathname);
 
     to_send.flags = flags;
@@ -134,7 +136,7 @@ int writeFile(const char* pathname, const char* dirname)
     // Pulisco il buffer
     memset(write_buffer, 0, MAX_FILE_SIZE);
     // Apro il file
-    FILE* to_read = fopen(pathname, "r");
+    FILE* to_read = fopen(pathname, "rb");
 
     if (to_read == NULL)
     {
@@ -145,9 +147,12 @@ int writeFile(const char* pathname, const char* dirname)
 
     // Leggo il contenuto del file
     fread(write_buffer, sizeof(char), MAX_FILE_SIZE, to_read);
+    // Chiudo il file
+    fclose(to_read);
 
     // Creo una richiesta
     ClientRequest to_send;
+    memset(&to_send, 0, sizeof(to_send));
     // La imposto correttamente
     strcpy(to_send.path, pathname);
     strcpy(to_send.content, write_buffer);
@@ -178,6 +183,7 @@ int readFile(const char* pathname, void** buf, size_t* size)
     // Creo la risposta
     ServerResponse to_receive;
 
+    memset(&to_send, 0, sizeof(to_send));
     time(&timestamp);
 
     to_send.timestamp = timestamp;
@@ -220,6 +226,7 @@ int readNFiles(int n, const char* dirname)
     // Richiesta del client
     ClientRequest request;
 
+    memset(&request, 0, sizeof(request));
     time(&timestamp);
 
     // Mando una richiesta
@@ -333,10 +340,12 @@ int closeFile(const char* pathname)
     // Risposta
     int reply;
 
+    memset(&to_send, 0, sizeof(to_send));
+
     time(&timestamp);
 
     to_send.op_code = CLOSEFILE;
-    strcpy(to_send.path, pathname);
+    memcpy(to_send.path, pathname, strlen(pathname));
 
     // La invio
     write(socket_fd, &to_send, sizeof(to_send));

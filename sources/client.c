@@ -62,7 +62,7 @@ int execute_requests(ClientConfig config, List* requests)
     while (requests->head != NULL)
     {
         // Requests->head contiene la prossima richiesta da eseguire nei dati
-        ArgLineRequest* curr_request = (ArgLineRequest*) requests->head->data;
+        ArgLineRequest* curr_request = (ArgLineRequest*) list_dequeue(requests);
         // Codice operazione
         char op = curr_request->code;
         // Argomenti
@@ -115,6 +115,8 @@ int execute_requests(ClientConfig config, List* requests)
                             fprintf(stderr, "Impossibile scrivere il file (errore %d)\n", err);
                         closeFile(real_path);
                     }
+
+                    free(real_path);
                     
                     i++;
                 }
@@ -179,8 +181,11 @@ int execute_requests(ClientConfig config, List* requests)
                                 // Scrivo nella cartella
                                 FILE* file = fopen(write_path, "wb");
                                 printf("Path: %s\nContent:%s\n", write_path, file_buffer);
-                                if (fwrite(file_buffer, sizeof(char), n_to_read, file) <= 0)
+                                if (fwrite(file_buffer, sizeof(char), n_to_read, file) <= 0) 
+                                {
+                                    fclose(file);
                                     return WRITE_FILE_ERROR;
+                                }
                                 fclose(file);
                             }
                             else
@@ -243,7 +248,7 @@ int execute_requests(ClientConfig config, List* requests)
         }
 
         // Ho esaurito una richiesta, passo alla prossima
-        list_dequeue(requests);
+        free(curr_request);
         // Pulisco la lista degli argomenti
         free(args);
     }
@@ -347,6 +352,8 @@ char** parse_request_arguments(char* args)
 
     // Alloco correttamente il vettore di argomenti
     ret = malloc(sizeof(char*) * n_args);
+    memset(ret, 0, n_args);
+    
     i = 0;
 
     // Prendo la prima stringa
@@ -369,7 +376,7 @@ void clean_client(Hashmap config, List requests)
 {
     // Pulisco la memoria delle strutture dati
     hashmap_clean(config, NULL);
-    list_clean(requests, NULL);
+    list_clean(requests, clean_request_node);
 }
 
 ClientConfig initialize_client(Hashmap config)
@@ -445,13 +452,17 @@ int parse_options(Hashmap* config, List* requests, int n_args, char** args)
     char* opt_value = malloc(sizeof(char) * OPT_VALUE_LENGTH);
 
     ArgLineRequest* curr_request = malloc(sizeof(ArgLineRequest));
+    memset(curr_request, 0, sizeof(ArgLineRequest));
 
     sprintf(opt_value, "%d", 0);
     sprintf(opt_name, "p");
     hashmap_put(config, opt_value, opt_name);
 
     opt_value = malloc(sizeof(char) * OPT_VALUE_LENGTH);
+    memset(opt_value, 0, OPT_NAME_LENGTH);
+
     opt_name = malloc(sizeof(char) * OPT_NAME_LENGTH);
+    memset(opt_name, 0, OPT_NAME_LENGTH);
 
     while ((opt = getopt(n_args, args, ":phf:w:W:D:R::r:d:t:l:u:c:a:")) != -1)
     {
@@ -500,6 +511,7 @@ int parse_options(Hashmap* config, List* requests, int n_args, char** args)
                 list_enqueue(requests, (void*)curr_request, opt_name);
                 // Rialloco la struttura
                 curr_request = malloc(sizeof(ArgLineRequest));
+                memset(curr_request, 0, sizeof(ArgLineRequest));
 
                 used_name = TRUE;
                 break;
@@ -510,12 +522,12 @@ int parse_options(Hashmap* config, List* requests, int n_args, char** args)
                     sprintf(opt_value, "%s", optarg);
                 else
                     sprintf(opt_value, "-1");
-
                 curr_request->code = 'R';
                 curr_request->arguments = opt_value;
                 // Metto R in coda come operazione
                 list_enqueue(requests, (void*)curr_request, NULL);
                 curr_request = malloc(sizeof(ArgLineRequest));
+                memset(curr_request, 0, sizeof(ArgLineRequest));
 
                 used_val = TRUE;
                 break;
@@ -530,11 +542,17 @@ int parse_options(Hashmap* config, List* requests, int n_args, char** args)
         }
 
         if (used_name)
+        {
             // Rialloco la chiave così la prossima volta è in una locazione diversa
             opt_name = malloc(sizeof(char) * OPT_NAME_LENGTH);
+            memset(opt_name, 0, OPT_NAME_LENGTH);
+        }
         if (used_val)
+        {
             // Rialloco il parametro così la prossima volta è in una locazione diversa
             opt_value = malloc(sizeof(char) * OPT_VALUE_LENGTH);
+            memset(opt_value, 0, OPT_VALUE_LENGTH);
+        }
         
         used_name = FALSE;
         used_val = FALSE;
