@@ -373,6 +373,7 @@ ClientConfig initialize_client(Hashmap config)
     if (hashmap_has_key(config, "d"))
     {
         ret.read_dir = (char*)hashmap_get(config, "d");
+        printf("Read dir: %s\n", ret.read_dir);
     }
 
     if (hashmap_has_key(config, "t"))

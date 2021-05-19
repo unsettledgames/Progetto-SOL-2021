@@ -125,8 +125,6 @@ int writeFile(const char* pathname, const char* dirname)
     int n_expelled;
     // Buffer per il contenuto del file
     char* write_buffer = malloc(sizeof(char) * MAX_FILE_SIZE);
-    // Buffer per una singola linea del file
-    char line_buffer[MAX_FILE_SIZE];
     // Timestamp
     time_t timestamp;
     // return
@@ -146,8 +144,7 @@ int writeFile(const char* pathname, const char* dirname)
     }
 
     // Leggo il contenuto del file
-    while (fgets(line_buffer, sizeof(line_buffer), to_read) != NULL)
-        strncat(write_buffer, line_buffer, strlen(line_buffer));
+    fread(write_buffer, sizeof(char), MAX_FILE_SIZE, to_read);
 
     // Creo una richiesta
     ClientRequest to_send;
@@ -213,15 +210,13 @@ int readFile(const char* pathname, void** buf, size_t* size)
 */
 int readNFiles(int n, const char* dirname)
 {
-    // Impostato tramite risposta dal server, indica se devo smettere di leggere
-    int must_stop = FALSE;
     // Timestamp
     time_t timestamp;
     // Indica il numero di file che il server intende restituire
     int to_read;
+    // Valore di ritorno
+    int ret = 0;
 
-    // Risposta del server
-    ServerResponse response;
     // Richiesta del client
     ClientRequest request;
 
@@ -234,25 +229,14 @@ int readNFiles(int n, const char* dirname)
     writen(socket_fd, &request, sizeof(request));
 
     // Leggo quanti file devo leggere
-    readn(socket_fd, &to_read, sizeof(to_read));
+    ret = readn(socket_fd, &to_read, sizeof(to_read));
 
-    // Vado avanti finché ho da leggere
-    for (int i=0; i<to_read && !must_stop; i++)
-    {
-        // Leggo un file
-        readn(socket_fd, &response, sizeof(response));
-        // Se non ho avuto errori, posso leggere
-        if (response.error_code == OK)
-        {
-            printf("Contenuto del file %s\n", response.path);
-            printf("%s\n", response.content);
-        }
-        // Altrimenti devo fermarmi
-        else
-            must_stop = TRUE;
-    }
-
-    return 0;
+    if (ret <= 0)
+        return READ_FILE_ERROR;
+    // Posso riciclare la funzione per leggere i file espulsi
+    if (to_read >= 0)
+        to_read = handle_expelled_files(to_read, dirname);
+    return ret;
 }
 
 int appendToFile(const char* pathname, void* buf, size_t size, const char* dirname)
@@ -290,9 +274,27 @@ int handle_expelled_files(int to_read, const char* dirname)
     char curr_path[MAX_PATH_LENGTH];
 
     expelled_path[0] = 'E';
-    expelled_path[1] = '-';
 
     getcwd(curr_path, MAX_PATH_LENGTH);
+
+    if (dirname != NULL)
+    {
+        // Controllo che la cartella esista
+        errno = 0;
+        DIR* my_dir = opendir(dirname);
+
+        // Se non esiste la creo
+        if (!my_dir || (errno == ENOENT))
+        {
+            if (mkdir(dirname, 0777) != 0)
+                return CREATE_DIR_ERROR;
+        }
+        else
+            closedir(my_dir);
+
+        // Mi sposto nella cartella
+        chdir(dirname);
+    }
 
     while (to_read > 0 && err >= 0)
     {
@@ -304,23 +306,8 @@ int handle_expelled_files(int to_read, const char* dirname)
         {
             if (dirname != NULL)
             {
-                // Controllo che la cartella esista
-                errno = 0;
-                DIR* my_dir = opendir(dirname);
-
-                // Se non esiste la creo
-                if (!my_dir || (errno == ENOENT))
-                {
-                    if (mkdir(dirname, 0777) != 0)
-                        return CREATE_DIR_ERROR;
-                }
-                else
-                    closedir(my_dir);
-
-                // Mi sposto nella cartella
-                chdir(dirname);
                 // Aggiungo 'expelled' al nome del file espulso
-                strncpy(&expelled_path[2], response.path, MAX_PATH_LENGTH);
+                strncpy(&expelled_path[1], response.path, MAX_PATH_LENGTH);
                 replace_char(expelled_path, '/', '-');
                 // Scrivo nella cartella
                 FILE* file = fopen(expelled_path, "w");
@@ -332,7 +319,7 @@ int handle_expelled_files(int to_read, const char* dirname)
             }
             else
                 // Stampo e basta
-                printf("File espulso:\n%s\n%s\n\n", response.path, response.content);
+                printf("File ricevuto:\n%s\n%s\n\n", response.path, response.content);
         }
         else
             err = EXPELLED_FILE_FAILED;
