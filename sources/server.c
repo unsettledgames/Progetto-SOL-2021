@@ -212,6 +212,8 @@ void* worker(void* args)
                     to_open->is_open = TRUE;
                     // Imposto il primo timestamp
                     to_open->last_used = timestamp;
+                    // Il file non è stato modificato inizialmente
+                    to_open->modified = FALSE;
 
                     // Infine aggiungo il file alla tabella
                     hashmap_put(&files, to_open, file_key);
@@ -401,6 +403,7 @@ void* worker(void* args)
                 to_write->last_op = WRITEFILE;
                 to_write->last_used = timestamp;
                 to_write->content_size = file_size;
+                to_write->modified = TRUE;
 
                 // Dealloco
                 if (files_to_send != NULL)
@@ -484,6 +487,7 @@ void* worker(void* args)
                 // Adesso posso appendere
                 file->last_used = timestamp;
                 file->content_size += file_size;
+                file->modified = TRUE;
                 strncat(file->content, request.content, request.content_size);
 
                 break;
@@ -923,8 +927,12 @@ char* get_LRU(char* current_path)
         {
             File* curr_file = (File*)list_get(files.lists[i], j);
 
-            if (curr_file->last_used <= timestamp && strcmp(curr_file->path, current_path) != 0)
+            // Se il file è stato modificato, è stato usato meno recentemente del file corrente e 
+            // non è il file che devo inserire
+            if (curr_file->modified && curr_file->last_used <= timestamp && 
+                strcmp(curr_file->path, current_path) != 0)
             {
+                // Allora potrebbe essere un possibile file da rimuovere secondo la LRU
                 timestamp = curr_file->last_used;
                 strncpy(to_ret, curr_file->path, MAX_PATH_LENGTH);
             }

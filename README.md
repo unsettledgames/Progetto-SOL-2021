@@ -1,8 +1,6 @@
 # Progetto-SOL-2021
 
 ## TODO LIST
-- Controllo leak e accessi in memoria (impegnativa, manca il server)
-- Aggiungere controllo della modifica alla LRU
 - Timer nelle richieste (facile)
 - Flag nella openFile (media)
 - Conversione da file testuali a binari (delicata)
