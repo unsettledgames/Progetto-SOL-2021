@@ -315,7 +315,7 @@ int handle_expelled_files(int to_read, const char* dirname)
             }
             else
                 // Stampo e basta
-                printf("File ricevuto:\n%s\n%s\n\n", response.path, response.content);
+                printf("File ricevuto:%s\n", response.path);
         }
         else
             err = EXPELLED_FILE_FAILED;

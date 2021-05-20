@@ -288,7 +288,7 @@ void* worker(void* args)
                 pthread_mutex_unlock(&files_mutex);
                 break;
             case WRITEFILE:;
-                // FIle espulsi da rispedire al client
+                // File espulsi da rispedire al client
                 files_to_send = NULL;
                 // Prendo il file dalla tabella
                 pthread_mutex_lock(&files_mutex);
@@ -325,7 +325,7 @@ void* worker(void* args)
 
                                 // Nel peggiore dei casi, i file da spedire indietro sono tutti (TODO: usare una lista)
                                 files_to_send = malloc(sizeof(File) * files.curr_size);
-                                memset(files_to_send, 0, sizeof(files_to_send));
+                                memset(files_to_send, 0, sizeof(File) * files.curr_size);
 
                                 while (allocated_space > config.tot_space && to_send >= 0)
                                 {
@@ -382,6 +382,8 @@ void* worker(void* args)
                 // E invio anche i file rimossi
                 for (int i=0; i<to_send; i++)
                 {
+                    printf("Voglio scrivere %s\n", request.path);
+                    printf("Content: %s\n", request.content);
                     // Creo la risposta
                     ServerResponse response;
                     memset(&response, 0, sizeof(response));
@@ -411,7 +413,7 @@ void* worker(void* args)
                 File* file = (File*)hashmap_get(files, request.path);
                 // Array dei file da espellere
                 files_to_send = malloc(sizeof(File) * files.curr_size);
-                memset(files_to_send, 0, sizeof(files_to_send));
+                memset(files_to_send, 0, sizeof(File) * files.curr_size);
                 // Dimensione del contenuto da appendere
                 file_size = strlen(request.content);
 
