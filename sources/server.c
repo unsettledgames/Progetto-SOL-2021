@@ -74,7 +74,13 @@ int main(int argc, char** argv)
     FD_ZERO(&desc_set);
 
     // Parsing della configurazione del server
-    config = config_server();
+    if (argc == 1)
+    {
+        clean_everything();
+        return CONFIG_FILE_ERROR;
+    }
+
+    config = config_server(argv[1]);
 
     if (errno == 0)
     {
@@ -107,6 +113,7 @@ int main(int argc, char** argv)
         perror("Impossibile terminare la configurazione del server.\n");
         exit(CONFIG_FILE_ERROR);
     }
+
     return 0;
 }
 
@@ -806,7 +813,7 @@ void cleanup()
         fclose(log_file);
 }
 
-ServerConfig config_server()
+ServerConfig config_server(const char* file_name)
 {
     ServerConfig ret;
     FILE* config_file;
@@ -818,7 +825,7 @@ ServerConfig config_server()
     ret.socket_name[0] = '\0';
     ret.log_path[0] = '\0';
 
-    config_file = fopen("config.txt", "r");
+    config_file = fopen(file_name, "r");
 
     if (config_file == NULL)
     {
@@ -1037,4 +1044,37 @@ void* sighandler(void* param)
         }
     }
     pthread_exit(NULL);
+}
+
+void clean_everything()
+{
+    // Chiudo tutte le connessioni
+    Node* curr = client_fds.head;
+    while (curr != NULL)
+    {
+        close(*((int*)curr->data));
+        curr = curr->next;
+    }
+    printf("Connessioni chiuse\n");
+    // Coda richieste
+    list_clean(requests, NULL);
+    printf("richieste puliti\n");
+    // Pulisco tutte le strutture dati
+    if (log_file != NULL)
+        fclose(log_file);
+    printf("log chiuso\n");
+    // Lista dei client
+    list_clean(client_fds, NULL);
+    printf("client puliti\n");
+    // Tabella dei file
+    hashmap_clean(files, NULL);
+    printf("file puliti\n");
+    // Tids
+    free(tids);
+    printf("tids puliti\n");
+    // Elimino il socket
+    unlink(config.socket_name);
+    // Esco dall'handler
+    pthread_kill(sighandler_tid, SIGKILL);
+    pthread_join(sighandler_tid, NULL);
 }

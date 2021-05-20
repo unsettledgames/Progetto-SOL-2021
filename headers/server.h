@@ -47,7 +47,7 @@ typedef struct serverconfig
     char log_path[MAX_PATH_LENGTH];
 }ServerConfig;
 
-ServerConfig config_server();
+ServerConfig config_server(const char* file_name);
 
 void* connession_handler(void* args);
 
@@ -68,3 +68,5 @@ void print_file_node(Node* to_print);
 char* get_LRU(char* current_path);
 
 void* sighandler(void* param);
+
+void clean_everything();
