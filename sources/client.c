@@ -254,6 +254,8 @@ int execute_requests(ClientConfig config, List* requests)
         free(curr_request);
         // Pulisco la lista degli argomenti
         free(args);
+        // Faccio una sleep per la durata specificata dall'utente
+        usleep(config.request_rate * 1000);
     }
 
     return 0;
