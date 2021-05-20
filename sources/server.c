@@ -192,6 +192,7 @@ void* worker(void* args)
                     // Il file non esisteva, allora lo aggiungo
                     // Preparo il file da aprire
                     File* to_open = malloc(sizeof(File));
+                    memset(to_open, 0, sizeof(File));
                     // Chiave del file da aprire
                     char* file_key = malloc(sizeof(char) * MAX_PATH_LENGTH);
                     // Resetto la memoria della chiave
@@ -268,6 +269,7 @@ void* worker(void* args)
                 for (int i=0; i<to_send; i++)
                 {
                     ServerResponse response;
+                    memset(&response, 0, sizeof(response));
                     File* curr_file = (File*)list_get(file_list, i);
 
                     if (curr_file == NULL)
@@ -323,6 +325,7 @@ void* worker(void* args)
 
                                 // Nel peggiore dei casi, i file da spedire indietro sono tutti (TODO: usare una lista)
                                 files_to_send = malloc(sizeof(File) * files.curr_size);
+                                memset(files_to_send, 0, sizeof(files_to_send));
 
                                 while (allocated_space > config.tot_space && to_send >= 0)
                                 {
@@ -386,13 +389,13 @@ void* worker(void* args)
                     response.error_code = 0;
                     memcpy(response.path, files_to_send[i].path, sizeof(files_to_send[i].path));
                     memcpy(response.content, files_to_send[i].content, sizeof(files_to_send[i].content));
-                    
+
                     // Invio la risposta
                     writen(request.client_descriptor, &response, sizeof(response));
                 }
 
                 // Solo ora posso scrivere i dati inviati dal client
-                strcpy(to_write->content, request.content);
+                memcpy(to_write->content, request.content, sizeof(to_write->content));
                 to_write->last_op = WRITEFILE;
                 to_write->last_used = timestamp;
                 to_write->content_size = file_size;
@@ -408,6 +411,7 @@ void* worker(void* args)
                 File* file = (File*)hashmap_get(files, request.path);
                 // Array dei file da espellere
                 files_to_send = malloc(sizeof(File) * files.curr_size);
+                memset(files_to_send, 0, sizeof(files_to_send));
                 // Dimensione del contenuto da appendere
                 file_size = strlen(request.content);
 
@@ -907,8 +911,8 @@ char* get_LRU(char* current_path)
     time_t timestamp;
     // Path del file da eliminare
     char* to_ret = malloc(sizeof(char) * MAX_PATH_LENGTH);
-
     memset(to_ret, 0, MAX_PATH_LENGTH);
+
     time(&timestamp);
 
     for (int i=0; i<files.size; i++)

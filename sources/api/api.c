@@ -124,7 +124,7 @@ int openFile(const char* pathname, int flags)
 int writeFile(const char* pathname, const char* dirname)
 {
     // Numero di file espulsi dalla write
-    int n_expelled;
+    int n_expelled = 0;
     // Buffer per il contenuto del file
     char* write_buffer = malloc(sizeof(char) * MAX_FILE_SIZE);
     // Timestamp
@@ -295,6 +295,7 @@ int handle_expelled_files(int to_read, const char* dirname)
     {
         // Ricevo un file dal server
         ServerResponse response;
+        memset(&response, 0, sizeof(response));
         err = readn(socket_fd, &response, sizeof(response));
 
         if (err > 0 && response.error_code == OK)

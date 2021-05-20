@@ -322,9 +322,17 @@ int send_from_dir(const char* dirpath, int* n_files, const char* write_dir)
         {
             // Ottengo il path completo
             char full_path[PATH_MAX];
-            // Se l'invio è avvenuto con successo, segnalo che ho scritto un file
-            if (writeFile(realpath(dirpath, full_path), write_dir) == 0)
-                (*n_files)--;
+            
+            realpath(dirpath, full_path);
+            // Provo ad aprire il file
+            if (openFile(full_path, 0) == 0)
+            {
+                // Se l'invio è avvenuto con successo, segnalo che ho scritto un file
+                if (writeFile(full_path, write_dir) == 0)
+                    (*n_files)--;
+                closeFile(full_path);
+            }
+            
             return 0;
         }
         else
