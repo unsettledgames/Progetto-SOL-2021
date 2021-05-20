@@ -147,6 +147,7 @@ void* worker(void* args)
     ClientRequest request;
     // Timestamp
     time_t timestamp;
+
     while (!must_stop)
     {
         // Return value
@@ -160,10 +161,17 @@ void* worker(void* args)
 
         // Mi metto in attesa sulla variabile condizionale
         pthread_mutex_lock(&queue_mutex);
-        while (requests.length <= 0)
+        while (requests.length <= 0 && !must_stop)
             pthread_cond_wait(&queue_not_empty, &queue_mutex);
+        
+        // Se sono arrivato fin qui, o è perché devo terminare
+        if (must_stop)
+        {
+            printf("Il thread è uscito\n");
+            pthread_exit(NULL);
+        }
 
-        // Se sono arrivato fin qui, ho una richiesta da elaborare
+        // O è perché ho una richiesta da elaborare
         ClientRequest* to_free = (ClientRequest*)list_dequeue(&requests);
         // Copio la richiesta
         memcpy(&request, to_free, sizeof(request));
@@ -665,6 +673,7 @@ void* dispatcher(void* args)
         }
     }
 
+    printf("Dispatcher terimnato\n");
     pthread_exit(NULL);
 }
 
@@ -720,7 +729,8 @@ void* connession_handler(void* args)
         }
     }
 
-    return NULL;
+    printf("Accepter terimnato\n");
+    pthread_exit(NULL);
 }
 
 int create_log()
@@ -968,12 +978,27 @@ static void sighandler(int param)
                 close(*((int*)curr->data));
                 curr = curr->next;
             }
-
-            // Interrompo dispatcher, worker e accepters
-            /*pthread_cancel(connession_handler_tid);
-            pthread_cancel(dispatcher_tid);
+            // Coda richieste
+            list_clean(requests, NULL);
+            printf("richieste puliti\n");
 
             for (int i=0; i<config.n_workers; i++)
+            {
+                pthread_kill(tids[i], SIGKILL);
+            }
+
+            // Invio tanti segnali quanti sono i worker, così li sveglio e terminano
+            /*for (int i=0; i<config.n_workers; i++)
+            {
+                printf("Invio segnale\n");
+                pthread_cond_signal(&queue_not_empty);
+            }*/
+
+            // Interrompo dispatcher, worker e accepters
+            pthread_kill(connession_handler_tid, SIGKILL);
+            pthread_kill(dispatcher_tid, SIGKILL);
+
+            /*for (int i=0; i<config.n_workers; i++)
             {
                 pthread_cancel(tids[i]);
             }*/
@@ -995,9 +1020,6 @@ static void sighandler(int param)
             // Lista dei client
             list_clean(client_fds, NULL);
             printf("client puliti\n");
-            // Coda richieste
-            list_clean(requests, NULL);
-            printf("richieste puliti\n");
             // Tabella dei file
             hashmap_clean(files, NULL);
             printf("file puliti\n");
