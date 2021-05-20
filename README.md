@@ -2,7 +2,6 @@
 
 ## TODO LIST
 - Flag nella openFile (media)
-- Passaggio nome del file di configurazione da linea di comando al server
 - Controllo errori (delicata)
 - Funzioni opzionali
   - Logging (facile)
@@ -12,9 +11,6 @@
 - Controllo finale leak e accessi in memoria (media)
 
 ### COSE PREOCCUPANTI
-- A un certo punto abstime andrà settato in maniera corretta (parsing di date da linea di comando?)
-- Se un client si disconnette prima del dovuto, il server va in loop per richieste non supportate
-  - Per difendersi potrebbe chiudere la connessione con un client che invia richieste non supportate e proseguire
 - Come distinguo tra un path assoluto e uno relativo? E' sufficiente supporre che tutti i path passati da linea di comando siano assoluti?
   - Idea interessante: quando apro un file che non esiste, creo una versione temporanea nel path specificato dall'utente, così poi può riaccederci quando vuole usando il path relativo. 
   - Altra idea interessante per i path: se realpath ritorna NULL, provo comunque l'accesso usando il path locale
