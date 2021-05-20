@@ -1,6 +1,13 @@
 # Progetto-SOL-2021
 
 ## TODO LIST
+- Gestione path
+  - Dev'essere spostata nelle api
+  - Se il client fornisce un file che non esiste fisicamente
+    - Allora mantengo un path relativo nel server se O_CREATE è stata specificata
+  - Se il client fornisce un file che esiste già
+    - Nel server salvo il path assoluto
+  - In ogni caso, il client continua a riferirsi a quel file con il path locale
 - Flag nella openFile (media)
 - Controllo errori (delicata)
 - Funzioni opzionali
@@ -11,9 +18,6 @@
 - Controllo finale leak e accessi in memoria (media)
 
 ### COSE PREOCCUPANTI
-- Come distinguo tra un path assoluto e uno relativo? E' sufficiente supporre che tutti i path passati da linea di comando siano assoluti?
-  - Idea interessante: quando apro un file che non esiste, creo una versione temporanea nel path specificato dall'utente, così poi può riaccederci quando vuole usando il path relativo. 
-  - Altra idea interessante per i path: se realpath ritorna NULL, provo comunque l'accesso usando il path locale
 - Penso di non aver idea del perché la list_contains_string funzioni
 
 ### ERROR CHECKING

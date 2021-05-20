@@ -357,6 +357,14 @@ int closeFile(const char* pathname)
     return reply;
 }
 
+void get_right_path(char* path, char* buffer, int len)
+{
+    char* result = realpath(path, buffer);
+
+    if (result == NULL)
+        memcpy(buffer, path, len);
+}
+
 int lockFile(const char* pathname)
 {
     return 0;
