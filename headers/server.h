@@ -66,4 +66,4 @@ void print_file_node(Node* to_print);
 
 char* get_LRU(char* current_path);
 
-static void sighandler(int param);
+void* sighandler(void* param);

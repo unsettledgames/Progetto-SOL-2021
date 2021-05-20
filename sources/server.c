@@ -40,6 +40,10 @@ pthread_mutex_t max_fd_lock = PTHREAD_MUTEX_INITIALIZER;
 // Handlers
 pthread_t connession_handler_tid;
 pthread_t dispatcher_tid;
+pthread_t sighandler_tid;
+
+// Maschera dei segnali
+sigset_t mask;
 
 int debug = 0;
 
@@ -49,32 +53,18 @@ ServerConfig config;
 int main(int argc, char** argv)
 {
     // Maschero i segnali
-    sigset_t mask, oldmask;
+    sigset_t oldmask;
     sigemptyset(&mask);   
     sigaddset(&mask, SIGINT); 
     sigaddset(&mask, SIGQUIT);
     sigaddset(&mask, SIGHUP);
 
-    if (pthread_sigmask(SIG_BLOCK, &mask,&oldmask) != 0) {
+    if (pthread_sigmask(SIG_SETMASK, &mask, &oldmask) != 0) {
         fprintf(stderr, "Impossibile impostare la maschera dei segnali");
         return EXIT_FAILURE;
     }
-    // Registro il gestore dei segnali
-    struct sigaction sa;
-    memset (&sa, 0, sizeof(sa));   
-    // Assegno la funzione
-    sa.sa_handler = sighandler;
-    int notused;
-    // Modifico l'azione di default
-    SYSCALL_EXIT("sigaction", notused, sigaction(SIGINT, &sa, NULL), "sigaction", "");
-    SYSCALL_EXIT("sigaction", notused, sigaction(SIGQUIT, &sa, NULL), "sigaction", "");
-    SYSCALL_EXIT("sigaction", notused, sigaction(SIGHUP, &sa, NULL), "sigaction", "");
 
-    if (pthread_sigmask(SIG_SETMASK, &oldmask, NULL) != 0) 
-    {
-        fprintf(stderr, "FATAL ERROR\n");
-        return EXIT_FAILURE;
-    }
+    pthread_create(&sighandler_tid, NULL, &sighandler, NULL);
 
     // Inizializzazione delle strutture dati necessarie
     list_initialize(&requests, print_request_node);
@@ -110,16 +100,7 @@ int main(int argc, char** argv)
             pthread_create(&tids[i], NULL, &worker, NULL);
         }
 
-        // Aspetto che il dispatcher finisca
-        pthread_join(dispatcher_tid, NULL);
-        // Aspetto che il master finisca
-        pthread_join(connession_handler_tid, NULL);
-
-        // Aspetto che i worker finiscano
-        for (int i=0; i<config.n_workers; i++)
-        {
-            pthread_join(tids[i], NULL);
-        }
+        pthread_join(sighandler_tid, NULL);
     }
     else
     {
@@ -729,7 +710,9 @@ void* connession_handler(void* args)
         }
     }
 
-    printf("Accepter terimnato\n");
+    free(client_fd);
+    free(key);
+    
     pthread_exit(NULL);
 }
 
@@ -958,15 +941,18 @@ void print_file_node(Node* to_print)
     printf("Path: %s\nContent:%s\n\n", r.path, r.content);
 }
 
-static void sighandler(int param)
+void* sighandler(void* param)
 {
-    printf("Chiamato %d\n %d\n", param, must_stop);
+    int signal = -1;
+    sigwait(&mask, &signal);
+
+    printf("Chiamato %d\n %d\n", signal, must_stop);
     if (!must_stop)
     {
         // Segnalo che ho terminato
         must_stop = TRUE;
 
-        if (param == SIGINT || param == SIGQUIT)
+        if (signal == SIGINT || signal == SIGQUIT)
         {
             // Creo le statistiche
             // Pulisco immediatamente
@@ -1032,7 +1018,8 @@ static void sighandler(int param)
             // Segnalo che ho terminato
             must_stop = TRUE;
             // Esco      
-            exit(EXIT_FAILURE);
+            pthread_exit(NULL);
         }
     }
+    pthread_exit(NULL);
 }
