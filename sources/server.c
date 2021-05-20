@@ -381,12 +381,12 @@ void* worker(void* args)
                 {
                     // Creo la risposta
                     ServerResponse response;
-                    memset(&response, 0, sizeof(ServerResponse));
+                    memset(&response, 0, sizeof(response));
 
                     response.error_code = 0;
-                    memcpy(response.path, files_to_send[i].path, sizeof(response.path));
-                    memcpy(response.content, files_to_send[i].content, sizeof(response.content));
-    
+                    memcpy(response.path, files_to_send[i].path, sizeof(files_to_send[i].path));
+                    memcpy(response.content, files_to_send[i].content, sizeof(files_to_send[i].content));
+                    
                     // Invio la risposta
                     writen(request.client_descriptor, &response, sizeof(response));
                 }
@@ -676,43 +676,44 @@ void* connession_handler(void* args)
     struct sockaddr client_info;
     socklen_t client_addr_length = sizeof(client_info);
     // Dati dei nodi delle lsite
-    int* client_fd = malloc(sizeof(int));
-    char* key = malloc(sizeof(char) * 20);
+    int client_fd;
+    int* to_add;
+    char* key;
 
     while (!must_stop)
     {
         // Attendo una richiesta di connessione
-        if ((*client_fd = accept(socket_desc, &client_info, &client_addr_length)) > 0)
+        if ((client_fd = accept(socket_desc, &client_info, &client_addr_length)) > 0)
         {
+            // Rialloco così i dati puntano a una locazione differente
+            to_add = malloc(sizeof(int));
+            *to_add = client_fd;
+
+            key = malloc(sizeof(char) * 20);
+
             // Uso come chiave l'fd del thread
-            sprintf(key, "%d", *client_fd);
+            sprintf(key, "%d", client_fd);
 
             // Aggiungo l'fd alla lista, accedo in mutua esclusione perché potrei ricevere una 
             // richiesta di disconnessione che modifica la lista
             pthread_mutex_lock(&client_fds_lock);
-            list_push(&client_fds, client_fd, key);
+            list_push(&client_fds, to_add, key);
             pthread_mutex_unlock(&client_fds_lock);
 
             // Aggiungo il descrittore al read set
             pthread_mutex_lock(&desc_set_lock);
-            FD_SET(*client_fd, &desc_set);
+            FD_SET(client_fd, &desc_set);
             pthread_mutex_unlock(&desc_set_lock);
 
             // Aggiorno il massimo fd se necessario
             pthread_mutex_lock(&max_fd_lock);
-            if (max_fd < *client_fd)
-                max_fd = *client_fd;
+            if (max_fd < client_fd)
+                max_fd = client_fd;
             pthread_mutex_unlock(&max_fd_lock);
-
-            // Rialloco così i dati puntano a una locazione differente
-            client_fd = malloc(sizeof(int));
-            key = malloc(sizeof(char) * 20);
         }
     }
-
-    free(client_fd);
-    free(key);
     
+    printf("Accepter terminato\n");
     pthread_exit(NULL);
 }
 

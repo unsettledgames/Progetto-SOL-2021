@@ -32,6 +32,7 @@ typedef struct file
     int last_op;
     int is_open;
     int content_size;
+    int modified;
 
     time_t last_used;
 }File;
