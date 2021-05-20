@@ -545,13 +545,13 @@ void* worker(void* args)
                 
                 writen(request.client_descriptor, &to_send, sizeof(to_send));
                 break;
-            default:
+            default:;
                 char to_remove[20];
                 sprintf(to_remove, "%d", request.client_descriptor);
                 fprintf(stderr, "Codice richiesta %d non supportato dal server\n", request.op_code);
                 // Chiudo la connessione con quel client
                 pthread_mutex_lock(&client_fds_lock);
-                list_remove(&client_fds, to_remove);
+                list_remove_by_key(&client_fds, to_remove);
                 pthread_mutex_unlock(&client_fds_lock);
 
                 pthread_mutex_lock(&desc_set_lock);

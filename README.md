@@ -9,6 +9,7 @@
     - Nel server salvo il path assoluto
   - In ogni caso, il client continua a riferirsi a quel file con il path locale
 - Flag nella openFile (media)
+- Scritture successive è probabile che debbano avvenire per forza in append
 - Controllo errori (delicata)
 - Funzioni opzionali
   - Logging (facile)

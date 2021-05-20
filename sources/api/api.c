@@ -101,15 +101,21 @@ int closeConnection(const char* sockname)
 
 int openFile(const char* pathname, int flags)
 {
+    // Path del file da aprire
+    char path[MAX_PATH_LENGTH];
+    // Richiesta
     ClientRequest to_send;
     time_t timestamp;
     int reply = 0;
 
+    // Ottengo il path corretto (relativo o assoluto)
+    get_right_path(pathname, path, MAX_PATH_LENGTH);
+
     memset(&to_send, 0, sizeof(to_send));
     time(&timestamp);
 
-    memcpy(to_send.path, pathname, strlen(pathname) + 1);
-    to_send.content_size = strlen(pathname);
+    memcpy(to_send.path, path, strlen(path) + 1);
+    to_send.content_size = strlen(path);
 
     to_send.flags = flags;
     to_send.timestamp = timestamp;
@@ -121,6 +127,7 @@ int openFile(const char* pathname, int flags)
     return reply;
 }
 
+// TODO: here
 int writeFile(const char* pathname, const char* dirname)
 {
     // Numero di file espulsi dalla write

@@ -102,21 +102,16 @@ int execute_requests(ClientConfig config, List* requests)
 
                 while (args[i] != NULL)
                 {
-                    char* real_path = get_absolute_path(args[i]);
                     int err;
 
-                    if (real_path == NULL)
-                        perror("Impossibile trovare il percorso del file");
-                    else if ((err = openFile(real_path, 0)) != 0)
-                        fprintf(stderr, "Impossibile scrivere il file %s, operazione annullata (errore %d).\n", real_path, err);
+                    if ((err = openFile(args[i], 0)) != 0)
+                        fprintf(stderr, "Impossibile scrivere il file %s, operazione annullata (errore %d).\n", args[i], err);
                     else
                     {
-                        if ((err = writeFile(real_path, config.expelled_dir)) != 0)
+                        if ((err = writeFile(args[i], config.expelled_dir)) != 0)
                             fprintf(stderr, "Impossibile scrivere il file (errore %d)\n", err);
-                        closeFile(real_path);
+                        closeFile(args[i]);
                     }
-
-                    free(real_path);
                     
                     i++;
                 }
@@ -124,19 +119,16 @@ int execute_requests(ClientConfig config, List* requests)
                 break;
             case 'a':;
                 // Il primo argomento è il nome del file a cui appendere, il secondo è ciò che voglio appendere
-                char* real_path = get_absolute_path(args[0]);
                 int err;
-                
-                if (real_path == NULL)
-                    perror("Impossibile appendere a un file non esistente");
-                else if ((err = openFile(real_path, 0)) != 0)
+
+                if ((err = openFile(args[0], 0)) != 0)
                     perror("Errore nell'apertura del file");
                 else
                 {
-                    err = appendToFile(real_path, args[1], strlen(args[1]), config.expelled_dir);
+                    err = appendToFile(args[0], args[1], strlen(args[1]), config.expelled_dir);
                     if (err != 0)
                         perror("Impossibile appendere al file");
-                    closeFile(real_path);
+                    closeFile(args[0]);
                 }
 
                 break;
@@ -149,7 +141,6 @@ int execute_requests(ClientConfig config, List* requests)
                     char write_path[MAX_PATH_LENGTH * 2];
                     char curr_path[MAX_PATH_LENGTH];
 
-                    char* real_path = get_absolute_path(args[i]);
                     size_t n_to_read = MAX_FILE_SIZE;
                     char* file_buffer = malloc(sizeof(char) * MAX_FILE_SIZE);
 
@@ -158,15 +149,12 @@ int execute_requests(ClientConfig config, List* requests)
                     write_path[0] = 'E';
                     getcwd(curr_path, MAX_PATH_LENGTH);
 
-                    if (real_path == NULL)
-                        return FILE_NOT_FOUND;
-
-                    if (openFile(real_path, 0) != 0)
-                        fprintf(stderr, "Impossibile aprire il file %s, operazione annullata.\n", real_path);
+                    if (openFile(args[i], 0) != 0)
+                        fprintf(stderr, "Impossibile aprire il file %s, operazione annullata.\n", args[i]);
                     else
                     {
                         // Leggo il file dal server
-                        readFile(real_path, (void**)(&file_buffer), &n_to_read);
+                        readFile(args[i], (void**)(&file_buffer), &n_to_read);
 
                         // Controllo se devo scriverlo in una cartella
                         if (config.read_dir != NULL)
@@ -177,7 +165,7 @@ int execute_requests(ClientConfig config, List* requests)
                                 chdir(config.read_dir);
                                 
                                 // Aggiungo 'expelled' al nome del file espulso
-                                strncpy(&write_path[1], (char*)real_path, MAX_PATH_LENGTH);
+                                strncpy(&write_path[1], args[i], MAX_PATH_LENGTH);
                                 replace_char(write_path, '/', '-');
                                 // Scrivo nella cartella
                                 FILE* file = fopen(write_path, "wb");
@@ -193,13 +181,12 @@ int execute_requests(ClientConfig config, List* requests)
                                 perror("Impossibile scrivere il file letto nella cartella");
                         }
 
-                        printf("Contenuto del file %s\n", real_path);
+                        printf("Contenuto del file %s\n", args[i]);
                         printf("%s\n\n", file_buffer);
-                        closeFile(real_path);
+                        closeFile(args[i]);
                     }
 
                     free(file_buffer);
-                    free(real_path);
                     i++;
                 }
 
