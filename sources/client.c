@@ -119,7 +119,7 @@ int execute_requests(ClientConfig config, List* requests)
                 {
                     int err;
 
-                    if ((err = openFile(args[i], 0)) != 0)
+                    if ((err = openFile(args[i], (1 << O_CREATE))) != 0)
                         fprintf(stderr, "Impossibile scrivere il file %s, operazione annullata (errore %d).\n", args[i], err);
                     else
                     {

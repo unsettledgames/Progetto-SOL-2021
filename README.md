@@ -1,14 +1,6 @@
 # Progetto-SOL-2021
 
 ## TODO LIST
-- Gestione path
-  - Se il client fornisce un file che non esiste fisicamente
-    - Allora mantengo un path relativo nel server se O_CREATE è stata specificata
-  - Se il client fornisce un file che esiste già
-    - Nel server salvo il path assoluto
-  - In ogni caso, il client continua a riferirsi a quel file con il path locale
-- Flag nella openFile (media)
-- Scritture successive è probabile che debbano avvenire per forza in append
 - Controllo errori (delicata)
 - Funzioni opzionali
   - Logging (facile)
