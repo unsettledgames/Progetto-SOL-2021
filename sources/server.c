@@ -70,6 +70,7 @@ int main(int argc, char** argv)
     list_initialize(&requests, print_request_node);
     list_initialize(&client_fds, NULL);
     hashmap_initialize(&files, 1021, NULL);
+
     // Azzero la maschera dei socket da leggere
     FD_ZERO(&desc_set);
 
@@ -92,17 +93,25 @@ int main(int argc, char** argv)
         socket_desc = initialize_socket();
         create_log();
 
+        log_info("Configurazione del server acquisita correttamente");
+
         // Alloco spazio per i tids
         tids = malloc(sizeof(pthread_t) * config.n_workers);
 
         // Faccio partire il thread master, che accetta le connessioni
         pthread_create(&connession_handler_tid, NULL, &connession_handler, NULL);
+        log_info("Iniziata accettazione delle connessioni");
         // Faccio partire il dispatcher, che riceve le richieste e le aggiunge in coda
         pthread_create(&dispatcher_tid, NULL, &dispatcher, NULL);
+        log_info("Inizializzato dispatcher delle richieste");
 
         // Faccio partire i thread workers
         for (int i=0; i<config.n_workers; i++)
         {
+            char log_string[100];
+            sprintf(log_string, "Partito thread worker %d", i);
+            log_info(log_string);
+
             pthread_create(&tids[i], NULL, &worker, NULL);
         }
 
@@ -110,6 +119,7 @@ int main(int argc, char** argv)
     }
     else
     {
+        log_info("Impossibile terminare la configurazione del server. Esco...");
         perror("Impossibile terminare la configurazione del server.\n");
         exit(CONFIG_FILE_ERROR);
     }
@@ -154,16 +164,16 @@ void* worker(void* args)
         
         // Se sono arrivato fin qui, o è perché devo terminare
         if (must_stop)
-        {
-            printf("Il thread è uscito\n");
             pthread_exit(NULL);
-        }
 
         // O è perché ho una richiesta da elaborare
         ClientRequest* to_free = (ClientRequest*)list_dequeue(&requests);
         // Copio la richiesta
         memcpy(&request, to_free, sizeof(request));
-        printf("\nRichiesta da elaborare | desc: %d\nOP:%d\n", request.client_descriptor, request.op_code);
+        // Loggo
+        char log_string[512];
+        sprintf(log_string, "Ricevuta richiesta da elaborare\n\tClient descriptor: %d\n\tCodice operazione:%d\n", request.client_descriptor, request.op_code);
+        log_info(log_string);
         // Libero la memoria allocata
         free(to_free);
         // Sblocco la coda
@@ -574,6 +584,8 @@ void* worker(void* args)
                 break;
         }
 
+        log_info("Terminata gestione della richiesta.");
+
         // Resetto il valore di ritorno
         to_send = 0;
         // Una volta esaudita la richiesta, posso ricominciare ad ascoltare quel client
@@ -751,6 +763,8 @@ void* connession_handler(void* args)
             if (max_fd < client_fd)
                 max_fd = client_fd;
             pthread_mutex_unlock(&max_fd_lock);
+
+
         }
     }
     
@@ -1097,9 +1111,22 @@ void clean_everything()
 
 void log_info(const char* to_log)
 {
+    char str_time[MAX_TIME_LENGTH];
+    // Timestamp attuale
+    time_t raw_time;
+    struct tm* time_info;
+
+    // Ottengo il timestamp attuale
+    time(&raw_time);
+    time_info = localtime(&raw_time);
+    
     pthread_mutex_lock(&log_mutex);
 
-
+    // Converto il timestamp attuale in formato leggibile 
+    strftime(str_time, MAX_TIME_LENGTH, "%H:%M:%S", time_info);
+    // Scrivo nel file di log
+    fprintf(log_file, "%s | -> %s\n", str_time, to_log);
+    fflush(log_file);
 
     pthread_mutex_unlock(&log_mutex);
 }

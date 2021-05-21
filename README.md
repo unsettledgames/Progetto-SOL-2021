@@ -6,7 +6,7 @@
   - Dettagli operazioni di lettura (nome file, dimensione file restituito)
   - Dettagli operazioni di scrittura (dettagli sulla procedura di caching, nome file espulsi, numero byte scritti)
   - Esito operazioni
-  - Formato: YY-MM-DD | HH:mm:ss:ms -> dettagli
+  - Formato: HH:mm:ss:ms -> dettagli
   
 - Controllo errori (delicata)
 - Funzioni opzionali
