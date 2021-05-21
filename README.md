@@ -2,7 +2,6 @@
 
 ## TODO LIST
 - Gestione path
-  - Dev'essere spostata nelle api
   - Se il client fornisce un file che non esiste fisicamente
     - Allora mantengo un path relativo nel server se O_CREATE è stata specificata
   - Se il client fornisce un file che esiste già

@@ -58,6 +58,21 @@ int execute_requests(ClientConfig config, List* requests)
     appendToFile("/mnt/c/Users/nicol/OneDrive/Desktop/Git projects/Progetto-SOL-2021/TestDir/file1.txt", "\nContenuto da appendere al file1\n", sizeof("\nContenuto da appendere al file1\n"), NULL);
     closeFile("/mnt/c/Users/nicol/OneDrive/Desktop/Git projects/Progetto-SOL-2021/TestDir/file1.txt");
 */
+
+    // Debug della open con O_CREATE
+
+    printf("Valore di O_CREAT: %d\n", O_CREAT);
+    char* buff = malloc(sizeof(char) * MAX_FILE_SIZE);
+    char testo[] = "Testo di esempio per il file di prova aperto con O_CREATE";
+    char path[] = "Prova.txt";
+    memset(buff, 0, MAX_FILE_SIZE);
+    size_t size = MAX_FILE_SIZE;
+    openFile(path, O_CREATE);
+    appendToFile(path, testo, MAX_FILE_SIZE, NULL);
+    readFile(path, (void**)&buff, &size);
+    closeFile(path);
+    free(buff);
+
     // Finché non ho esaurito le richieste
     while (requests->head != NULL)
     {

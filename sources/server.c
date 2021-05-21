@@ -495,6 +495,7 @@ void* worker(void* args)
                 file->last_used = timestamp;
                 file->content_size += file_size;
                 file->modified = TRUE;
+                free(files_to_send);
                 strncat(file->content, request.content, request.content_size);
 
                 break;

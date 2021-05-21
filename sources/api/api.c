@@ -270,6 +270,7 @@ int appendToFile(const char* pathname, void* buf, size_t size, const char* dirna
     char path[MAX_PATH_LENGTH];
 
     get_right_path(pathname, path, MAX_PATH_LENGTH);
+    memset(&to_send, 0, sizeof(to_send));
 
     time(&timestamp);
 

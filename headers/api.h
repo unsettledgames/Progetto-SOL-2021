@@ -17,6 +17,9 @@
 #include "consts.h"
 #include "utility.h"
 
+#define O_CREATE    1
+#define O_LOCK      2
+
 enum Operations
 {
     OPENFILE =          0, 
