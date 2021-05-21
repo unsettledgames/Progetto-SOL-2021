@@ -73,6 +73,6 @@ int removeFile(const char* pathname);
 
 int handle_expelled_files(int to_read, const char* dirname);
 
-void get_right_path(char* path, char* buffer, int len);
+void get_right_path(const char* path, char* buffer, int len);
 
 #endif

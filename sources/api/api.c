@@ -138,16 +138,20 @@ int writeFile(const char* pathname, const char* dirname)
     time_t timestamp;
     // return
     int ret = 0;
+    // Path da utilizzare per l'invio
+    char path[MAX_PATH_LENGTH];
+
     time(&timestamp);
 
+    get_right_path(pathname, path, MAX_PATH_LENGTH);
     // Pulisco il buffer
     memset(write_buffer, 0, MAX_FILE_SIZE);
     // Apro il file
-    FILE* to_read = fopen(pathname, "rb");
+    FILE* to_read = fopen(path, "rb");
 
     if (to_read == NULL)
     {
-        perror("Errore nell'apertura del file da inviare");
+        fprintf(stderr, "Errore nell'apertura del file da inviare %s\n", path);
         free(write_buffer);
         return OPEN_FAILED;
     }
@@ -161,7 +165,7 @@ int writeFile(const char* pathname, const char* dirname)
     ClientRequest to_send;
     memset(&to_send, 0, sizeof(to_send));
     // La imposto correttamente
-    strcpy(to_send.path, pathname);
+    strcpy(to_send.path, path);
     strcpy(to_send.content, write_buffer);
     to_send.op_code = WRITEFILE;
     to_send.timestamp = timestamp;
@@ -183,19 +187,22 @@ int writeFile(const char* pathname, const char* dirname)
 
 int readFile(const char* pathname, void** buf, size_t* size)
 {
-    printf("Entrato\n");
     // Timestamp
     time_t timestamp;
     // Creo la richiesta
     ClientRequest to_send;
     // Creo la risposta
     ServerResponse to_receive;
+    // Path del file
+    char path[MAX_PATH_LENGTH];
+
+    get_right_path(pathname, path, MAX_PATH_LENGTH);
 
     memset(&to_send, 0, sizeof(to_send));
     time(&timestamp);
 
     to_send.timestamp = timestamp;
-    strcpy(to_send.path, pathname);
+    strcpy(to_send.path, path);
     to_send.op_code = READFILE;
 
     // Invio la richiesta
@@ -259,12 +266,16 @@ int appendToFile(const char* pathname, void* buf, size_t size, const char* dirna
     ClientRequest to_send;
     int reply;
     time_t timestamp;
+    // Path del file
+    char path[MAX_PATH_LENGTH];
+
+    get_right_path(pathname, path, MAX_PATH_LENGTH);
 
     time(&timestamp);
 
     // Creo la richiesta di append
     to_send.op_code = APPENDTOFILE;
-    strcpy(to_send.path, pathname);
+    strcpy(to_send.path, path);
     strcpy(to_send.content, buf);
     to_send.content_size = size;
     to_send.timestamp = timestamp;
@@ -348,13 +359,17 @@ int closeFile(const char* pathname)
     ClientRequest to_send;
     // Risposta
     int reply;
+    // Path del file
+    char path[MAX_PATH_LENGTH];
+
+    get_right_path(pathname, path, MAX_PATH_LENGTH);
 
     memset(&to_send, 0, sizeof(to_send));
 
     time(&timestamp);
 
     to_send.op_code = CLOSEFILE;
-    memcpy(to_send.path, pathname, strlen(pathname));
+    memcpy(to_send.path, path, strlen(path));
 
     // La invio
     write(socket_fd, &to_send, sizeof(to_send));
@@ -364,7 +379,7 @@ int closeFile(const char* pathname)
     return reply;
 }
 
-void get_right_path(char* path, char* buffer, int len)
+void get_right_path(const char* path, char* buffer, int len)
 {
     char* result = realpath(path, buffer);
 
