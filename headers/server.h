@@ -70,3 +70,5 @@ char* get_LRU(char* current_path);
 void* sighandler(void* param);
 
 void clean_everything();
+
+void log_info(const char* to_log);

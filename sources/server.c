@@ -265,40 +265,46 @@ void* worker(void* args)
                 writen(request.client_descriptor, &response, sizeof(response));
                 break;
             case PARTIALREAD:;
-                List file_list;
-
-                pthread_mutex_lock(&files_mutex);
+                int finished = FALSE;
+                int sent = 0;
                 
-                // Ottengo tutti i file dalla tabella
-                file_list = hashmap_get_values(files);
+                pthread_mutex_lock(&files_mutex);
+
                 // Calcolo quanti file devo effettivamente spedire
-                if (request.flags < 0 || file_list.length < request.flags)
-                    to_send = file_list.length;
+                if (request.flags < 0 || files.curr_size < request.flags)
+                    to_send = files.curr_size;
                 else   
                     to_send = request.flags;
                 // Indico al client quanti file sto per ritornare
                 writen(request.client_descriptor, &(to_send), sizeof(to_send));
 
-                // Invio i file al client
-                for (int i=0; i<to_send; i++)
+                // Spedisco i file
+                for (int i=0; i<files.size && !finished; i++)
                 {
-                    ServerResponse response;
-                    memset(&response, 0, sizeof(response));
-                    File* curr_file = (File*)list_get(file_list, i);
-
-                    if (curr_file == NULL)
-                        response.error_code = FILE_NOT_FOUND;
-                    else
+                    for (int j=0; j<files.lists[i].length && !finished; i++)
                     {
-                        curr_file->last_used = timestamp;
-                        strcpy(response.path, curr_file->path);
-                        strcpy(response.content, curr_file->content);
+                        ServerResponse response;
+                        memset(&response, 0, sizeof(response));
+                        File* curr_file = (File*)list_get(files.lists[i], j);
+
+                        if (curr_file == NULL)
+                            response.error_code = FILE_NOT_FOUND;
+                        else
+                        {
+                            curr_file->last_used = timestamp;
+                            strcpy(response.path, curr_file->path);
+                            strcpy(response.content, curr_file->content);
+                        }
+
+                        // Invio la risposta
+                        writen(request.client_descriptor, &response, sizeof(response));
+                        sent++;
+
+                        if (sent >= to_send)
+                            finished = TRUE;
                     }
-
-                    // Invio la risposta
-                    writen(request.client_descriptor, &response, sizeof(response));
                 }
-
+                
                 pthread_mutex_unlock(&files_mutex);
                 break;
             case WRITEFILE:;
@@ -950,17 +956,21 @@ char* get_LRU(char* current_path)
     {
         for (int j=0; j<files.lists[i].length; j++)
         {
-            File* curr_file = (File*)list_get(files.lists[i], j);
-
-            // Se il file è stato modificato, è stato usato meno recentemente del file corrente e 
-            // non è il file che devo inserire
-            if (curr_file->modified && curr_file->last_used <= timestamp && 
-                strcmp(curr_file->path, current_path) != 0)
+            if (files.lists[i].length > 0)
             {
-                // Allora potrebbe essere un possibile file da rimuovere secondo la LRU
-                timestamp = curr_file->last_used;
-                strncpy(to_ret, curr_file->path, MAX_PATH_LENGTH);
+                File* curr_file = (File*)list_get(files.lists[i], j);
+
+                // Se il file è stato modificato, è stato usato meno recentemente del file corrente e 
+                // non è il file che devo inserire
+                if (curr_file->modified && curr_file->last_used <= timestamp && 
+                    strcmp(curr_file->path, current_path) != 0)
+                {
+                    // Allora potrebbe essere un possibile file da rimuovere secondo la LRU
+                    timestamp = curr_file->last_used;
+                    strncpy(to_ret, curr_file->path, MAX_PATH_LENGTH);
+                }
             }
+            
         }
     }
 
@@ -1083,4 +1093,13 @@ void clean_everything()
     // Esco dall'handler
     pthread_kill(sighandler_tid, SIGKILL);
     pthread_join(sighandler_tid, NULL);
+}
+
+void log_info(const char* to_log)
+{
+    pthread_mutex_lock(&log_mutex);
+
+
+
+    pthread_mutex_unlock(&log_mutex);
 }

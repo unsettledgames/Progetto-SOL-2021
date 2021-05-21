@@ -41,7 +41,74 @@
 
 */
 
-int socket_fd;
+static int socket_fd;
+
+
+static void get_right_path(const char* path, char* buffer, int len)
+{
+    char* result = realpath(path, buffer);
+
+    if (result == NULL)
+        memcpy(buffer, path, len);
+}
+
+static int handle_expelled_files(int to_read, const char* dirname)
+{
+    int err = 0;
+    char expelled_path[MAX_PATH_LENGTH + 20];
+    char curr_path[MAX_PATH_LENGTH];
+
+    expelled_path[0] = 'E';
+
+    getcwd(curr_path, MAX_PATH_LENGTH);
+
+    if (dirname != NULL && strcmp(dirname, "") != 0 && create_dir_if_not_exists(dirname) == 0)
+        // Mi sposto nella cartella
+        chdir(dirname);
+    else if (dirname != NULL && strcmp(dirname, "") != 0)
+        return CREATE_DIR_ERROR;
+
+    while (to_read > 0 && err >= 0)
+    {
+        // Ricevo un file dal server
+        ServerResponse response;
+        memset(&response, 0, sizeof(response));
+        err = readn(socket_fd, &response, sizeof(response));
+
+        if (err > 0 && response.error_code == OK)
+        {
+            if (dirname != NULL)
+            {
+                // Aggiungo 'expelled' al nome del file espulso
+                strncpy(&expelled_path[1], response.path, MAX_PATH_LENGTH);
+                replace_char(expelled_path, '/', '-');
+                // Scrivo nella cartella
+                FILE* file = fopen(expelled_path, "wb");
+                printf("Path: %s\n", expelled_path);
+                if (fwrite(response.content, sizeof(char), sizeof(response.content), file) <= 0)
+                    return WRITE_FILE_ERROR;
+                fclose(file);
+                
+            }
+            else
+                // Stampo e basta
+                printf("File ricevuto:%s\n", response.path);
+        }
+        else
+            err = EXPELLED_FILE_FAILED;
+
+        to_read--;
+    }
+
+    // Mi risposto nella cartella originaria se dirname != NULL
+    if (dirname != NULL)
+        chdir(curr_path);
+
+    if (err > 0)
+        err = 0;
+
+    return err;
+}
 
 int openConnection(const char* sockname, int msec, const struct timespec abstime)
 {
@@ -294,64 +361,6 @@ int appendToFile(const char* pathname, void* buf, size_t size, const char* dirna
     return reply;
 }
 
-int handle_expelled_files(int to_read, const char* dirname)
-{
-    int err = 0;
-    char expelled_path[MAX_PATH_LENGTH + 20];
-    char curr_path[MAX_PATH_LENGTH];
-
-    expelled_path[0] = 'E';
-
-    getcwd(curr_path, MAX_PATH_LENGTH);
-
-    if (dirname != NULL && strcmp(dirname, "") != 0 && create_dir_if_not_exists(dirname) == 0)
-        // Mi sposto nella cartella
-        chdir(dirname);
-    else if (dirname != NULL && strcmp(dirname, "") != 0)
-        return CREATE_DIR_ERROR;
-
-    while (to_read > 0 && err >= 0)
-    {
-        // Ricevo un file dal server
-        ServerResponse response;
-        memset(&response, 0, sizeof(response));
-        err = readn(socket_fd, &response, sizeof(response));
-
-        if (err > 0 && response.error_code == OK)
-        {
-            if (dirname != NULL)
-            {
-                // Aggiungo 'expelled' al nome del file espulso
-                strncpy(&expelled_path[1], response.path, MAX_PATH_LENGTH);
-                replace_char(expelled_path, '/', '-');
-                // Scrivo nella cartella
-                FILE* file = fopen(expelled_path, "wb");
-                printf("Path: %s\n", expelled_path);
-                if (fwrite(response.content, sizeof(char), sizeof(response.content), file) <= 0)
-                    return WRITE_FILE_ERROR;
-                fclose(file);
-                
-            }
-            else
-                // Stampo e basta
-                printf("File ricevuto:%s\n", response.path);
-        }
-        else
-            err = EXPELLED_FILE_FAILED;
-
-        to_read--;
-    }
-
-    // Mi risposto nella cartella originaria se dirname != NULL
-    if (dirname != NULL)
-        chdir(curr_path);
-
-    if (err > 0)
-        err = 0;
-
-    return err;
-}
-
 int closeFile(const char* pathname)
 {
     printf("Chiamata\n");
@@ -378,14 +387,6 @@ int closeFile(const char* pathname)
     // Ricevo la risposta
     read(socket_fd, &reply, sizeof(int));
     return reply;
-}
-
-void get_right_path(const char* path, char* buffer, int len)
-{
-    char* result = realpath(path, buffer);
-
-    if (result == NULL)
-        memcpy(buffer, path, len);
 }
 
 int lockFile(const char* pathname)
