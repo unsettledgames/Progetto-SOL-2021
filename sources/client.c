@@ -67,7 +67,7 @@ int execute_requests(ClientConfig config, List* requests)
     char path[] = "Prova.txt";
     memset(buff, 0, MAX_FILE_SIZE);
     size_t size = MAX_FILE_SIZE;
-    openFile(path, O_CREATE);
+    openFile(path, 0 | (1 << O_CREATE));
     appendToFile(path, testo, MAX_FILE_SIZE, NULL);
     readFile(path, (void**)&buff, &size);
     closeFile(path);
@@ -125,9 +125,9 @@ int execute_requests(ClientConfig config, List* requests)
                     {
                         if ((err = writeFile(args[i], config.expelled_dir)) != 0)
                             fprintf(stderr, "Impossibile scrivere il file (errore %d)\n", err);
-                        closeFile(args[i]);
                     }
-                    
+
+                    closeFile(args[i]);
                     i++;
                 }
 

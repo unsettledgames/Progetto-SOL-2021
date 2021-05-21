@@ -120,7 +120,7 @@ int openFile(const char* pathname, int flags)
     to_send.flags = flags;
     to_send.timestamp = timestamp;
     to_send.op_code = OPENFILE;
-
+    
     writen(socket_fd, &to_send, sizeof(to_send));
     readn(socket_fd, &reply, sizeof(reply));
 
@@ -354,12 +354,13 @@ int handle_expelled_files(int to_read, const char* dirname)
 
 int closeFile(const char* pathname)
 {
+    printf("Chiamata\n");
     // Timestamp
     time_t timestamp;
     // Richiesta
     ClientRequest to_send;
     // Risposta
-    int reply;
+    int reply = 0;
     // Path del file
     char path[MAX_PATH_LENGTH];
 
@@ -376,7 +377,6 @@ int closeFile(const char* pathname)
     write(socket_fd, &to_send, sizeof(to_send));
     // Ricevo la risposta
     read(socket_fd, &reply, sizeof(int));
-
     return reply;
 }
 

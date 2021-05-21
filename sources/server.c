@@ -177,7 +177,7 @@ void* worker(void* args)
             case OPENFILE:;
                 // Verifico che il file non esista o non sia già aperto
                 pthread_mutex_lock(&files_mutex);
-                if (hashmap_has_key(files, request.path))
+                if (hashmap_has_key(files, request.path) && !((request.flags >> O_CREATE) & 1))
                 {
                     // Ottengo il file che mi interessa
                     File* to_open = (File*)hashmap_get(files, request.path);
@@ -194,7 +194,7 @@ void* worker(void* args)
                         pthread_mutex_unlock(&to_open->lock);
                     }
                 }
-                else
+                else if ((request.flags >> O_CREATE) & 1)
                 {
                     // Il file non esisteva, allora lo aggiungo
                     // Preparo il file da aprire
@@ -225,7 +225,12 @@ void* worker(void* args)
                     // Infine aggiungo il file alla tabella
                     hashmap_put(&files, to_open, file_key);
                     pthread_mutex_unlock(&files_mutex);
-                }                
+                }    
+                else
+                {
+                    to_send = INCONSISTENT_FLAGS;            
+                    pthread_mutex_unlock(&files_mutex);
+                }
 
                 writen(request.client_descriptor, &to_send, sizeof(to_send));
                 break;
@@ -501,6 +506,7 @@ void* worker(void* args)
                 break;
             case CLOSEFILE:
                 pthread_mutex_lock(&files_mutex);
+                printf("Passata lock su file\n");
                 if (hashmap_has_key(files, request.path))
                 {
                     File* to_close = (File*)hashmap_get(files, request.path);
@@ -525,9 +531,10 @@ void* worker(void* args)
                     pthread_mutex_unlock(&files_mutex);
                 }
 
+                printf("Scrivo chiusura\n");
                 // Invio la risposta
                 writen(request.client_descriptor, &to_send, sizeof(int));
-                    
+                    printf("Scritta chiusura\n");
                 break;
             case CLOSECONNECTION:;
                 // Descrittore in formato di stringa per poterlo rimuovere
@@ -1006,21 +1013,9 @@ void* sighandler(void* param)
                 pthread_kill(tids[i], SIGKILL);
             }
 
-            // Invio tanti segnali quanti sono i worker, così li sveglio e terminano
-            /*for (int i=0; i<config.n_workers; i++)
-            {
-                printf("Invio segnale\n");
-                pthread_cond_signal(&queue_not_empty);
-            }*/
-
             // Interrompo dispatcher, worker e accepters
             pthread_kill(connession_handler_tid, SIGKILL);
             pthread_kill(dispatcher_tid, SIGKILL);
-
-            /*for (int i=0; i<config.n_workers; i++)
-            {
-                pthread_cancel(tids[i]);
-            }*/
 
             // Aspetto che il dispatcher finisca
             pthread_join(dispatcher_tid, NULL);

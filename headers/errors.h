@@ -21,6 +21,7 @@
 #define CREATE_DIR_ERROR        -205
 #define WRITE_FILE_ERROR        -206
 #define READ_FILE_ERROR         -207
+#define INCONSISTENT_FLAGS      -208
 
 // SERVER ERRORS
 
