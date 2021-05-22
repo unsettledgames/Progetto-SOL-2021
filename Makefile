@@ -37,17 +37,17 @@ all: client server
 
 # Compilazione del server
 server: $(server_deps)
-	$(CC) $(INCLUDES) $(GENERIC_FLAGS) sources/server.c sources/utility/utility.c -o server -Wl,-rpath,./libs -L ./libs -ldata-structures -lapi -lz.so
+	$(CC) $(INCLUDES) $(GENERIC_FLAGS) sources/server.c sources/utility/utility.c -o server -Wl,-rpath,./libs -L ./libs -ldata-structures -lapi -lz
 # Compilazione del client
 client: $(client_deps)
 	$(CC) $(INCLUDES) $(GENERIC_FLAGS) sources/client.c sources/utility/utility.c -o client -Wl,-rpath,./libs -L ./libs -ldata-structures -lapi
 	
 # Make di zlib
 libs/libz.so:
-	cd deps/zlib-1.2.11
-	pwd
-	./configure; make test
-	cp zlib
+	cd deps/zlib-1.2.11/; \
+	./configure;make test; \
+	cd ../..; \
+	cp deps/zlib-1.2.11/libz.so libs
 
 # Make della libreria delle strutture dati
 libs/libdata-structures.so: $(O_FOLDER)/nodes.o $(O_FOLDER)/list.o $(O_FOLDER)/hashmap.o
