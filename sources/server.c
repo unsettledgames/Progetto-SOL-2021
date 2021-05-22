@@ -100,7 +100,6 @@ int main(int argc, char** argv)
 
         // Faccio partire il thread master, che accetta le connessioni
         pthread_create(&connession_handler_tid, NULL, &connession_handler, NULL);
-        log_info("Iniziata accettazione delle connessioni");
         // Faccio partire il dispatcher, che riceve le richieste e le aggiunge in coda
         pthread_create(&dispatcher_tid, NULL, &dispatcher, NULL);
         log_info("Inizializzato dispatcher delle richieste");
@@ -108,9 +107,7 @@ int main(int argc, char** argv)
         // Faccio partire i thread workers
         for (int i=0; i<config.n_workers; i++)
         {
-            char log_string[100];
-            sprintf(log_string, "Partito thread worker %d", i);
-            log_info(log_string);
+            log_info("Partito thread worker %d", i);
 
             pthread_create(&tids[i], NULL, &worker, NULL);
         }
@@ -171,9 +168,7 @@ void* worker(void* args)
         // Copio la richiesta
         memcpy(&request, to_free, sizeof(request));
         // Loggo
-        char log_string[512];
-        sprintf(log_string, "Ricevuta richiesta da elaborare\n\tClient descriptor: %d\n\tCodice operazione:%d\n", request.client_descriptor, request.op_code);
-        log_info(log_string);
+        log_info("Ricevuta richiesta da elaborare\n\tClient descriptor: %d\n\tCodice operazione:%d\n", request.client_descriptor, request.op_code);
         // Libero la memoria allocata
         free(to_free);
         // Sblocco la coda
@@ -185,6 +180,7 @@ void* worker(void* args)
         switch (request.op_code)
         {
             case OPENFILE:;
+                log_info("Tentativo di apertura del file %s", request.path);
                 // Verifico che il file non esista o non sia già aperto
                 pthread_mutex_lock(&files_mutex);
                 if (hashmap_has_key(files, request.path) && !((request.flags >> O_CREATE) & 1))
@@ -202,6 +198,8 @@ void* worker(void* args)
                         pthread_mutex_lock(&to_open->lock);
                         to_open->is_open = TRUE;
                         pthread_mutex_unlock(&to_open->lock);
+
+                        log_info("File aperto con successo.");
                     }
                 }
                 else if ((request.flags >> O_CREATE) & 1)
@@ -235,6 +233,8 @@ void* worker(void* args)
                     // Infine aggiungo il file alla tabella
                     hashmap_put(&files, to_open, file_key);
                     pthread_mutex_unlock(&files_mutex);
+
+                    log_info("File creato e aperto con successo");
                 }    
                 else
                 {
@@ -245,6 +245,8 @@ void* worker(void* args)
                 writen(request.client_descriptor, &to_send, sizeof(to_send));
                 break;
             case READFILE:;
+                log_info("Tentativo di apertura del file %s", request.path);
+
                 ServerResponse response;
                 memset(&response, 0, sizeof(response));
 
@@ -271,6 +273,9 @@ void* worker(void* args)
                     pthread_mutex_unlock(&files_mutex);
                 }
 
+                if (response.error_code == OK)
+                    log_info("File letto, dimensione contenuto: %ld", strlen(response.content));
+
                 // Invio la risposta al client
                 writen(request.client_descriptor, &response, sizeof(response));
                 break;
@@ -285,6 +290,10 @@ void* worker(void* args)
                     to_send = files.curr_size;
                 else   
                     to_send = request.flags;
+                
+                if (response.error_code == OK)
+                    log_info("Tentativo di leggere %d file", to_send);
+
                 // Indico al client quanti file sto per ritornare
                 writen(request.client_descriptor, &(to_send), sizeof(to_send));
 
@@ -308,6 +317,7 @@ void* worker(void* args)
 
                         // Invio la risposta
                         writen(request.client_descriptor, &response, sizeof(response));
+                        log_info("File letto : %s, dimensione contenuto: %ld", response.path, strlen(response.content));
                         sent++;
 
                         if (sent >= to_send)
@@ -324,6 +334,8 @@ void* worker(void* args)
                 pthread_mutex_lock(&files_mutex);
                 // File da scrivere
                 File* to_write = NULL;
+                // Numero di file nell'hashmap
+                int n_files = files.curr_size;
                 // Dimensione del file da scrivere
                 file_size = -1;
 
@@ -357,14 +369,18 @@ void* worker(void* args)
                                 files_to_send = malloc(sizeof(File) * files.curr_size);
                                 memset(files_to_send, 0, sizeof(File) * files.curr_size);
 
-                                while (allocated_space > config.tot_space && to_send >= 0)
+                                // Rimpiazzo finché non ho abbastanza spazio o finché non ho tolto abbastanza files
+                                while ((allocated_space > config.tot_space && to_send >= 0) || (n_files > config.max_files && to_send >= 0))
                                 {
+                                    log_info("Chiamato algoritmo di rimpiazzamento\n\t(Spazio: %d / %d)\n\t(N files: %d / %d)", 
+                                        allocated_space, config.tot_space, n_files, config.max_files);
                                     // Calcolo il path del file da rimuovere
                                     char* to_remove = get_LRU(request.path);
                                     
                                     // Se la LRU ha ritornato qualcosa, allora rimuovo quel file
                                     if (to_remove != NULL)
                                     {
+                                        log_info("Rimuovo il file %s", to_remove);
                                         // Salvo il file perché la remove dealloca i dati
                                         File* LRUed = (File*)hashmap_get(files, to_remove);
                                         memcpy(&(files_to_send[n_expelled]), LRUed, sizeof(*LRUed));
@@ -374,6 +390,8 @@ void* worker(void* args)
                                         hashmap_remove(&files, to_remove);
                                         
                                         to_send++;
+                                        n_files--;
+
                                         free(to_remove);
                                     }
                                     // Altrimenti ho fallito e non posso aggiungere il file
@@ -412,8 +430,7 @@ void* worker(void* args)
                 // E invio anche i file rimossi
                 for (int i=0; i<to_send; i++)
                 {
-                    printf("Voglio scrivere %s\n", request.path);
-                    printf("Content: %s\n", request.content);
+                    log_info("Invio il file rimosso %s", request.path);
                     // Creo la risposta
                     ServerResponse response;
                     memset(&response, 0, sizeof(response));
@@ -433,12 +450,15 @@ void* worker(void* args)
                 to_write->content_size = file_size;
                 to_write->modified = TRUE;
 
+                log_info("Scrittura del file %s di dimensione %d", request.path, file_size);
+
                 // Dealloco
                 if (files_to_send != NULL)
                     free(files_to_send);
 
                 break;
             case APPENDTOFILE:;
+                log_info("Tentativo di append al file %s", request.path);
                 // Prendo il file a cui appendere i dati
                 pthread_mutex_lock(&files_mutex);
                 File* file = (File*)hashmap_get(files, request.path);
@@ -462,11 +482,14 @@ void* worker(void* args)
                         // Altrimenti espello file finché non ho abbastanza spazio
                         while (allocated_space > config.tot_space && to_send >= 0)
                         {
+                            log_info("Invocato algoritmo di rimpiazzamento\n\t(Spazio: %d / %d)",
+                                allocated_space, config.tot_space);
                             // Provo a ottnere il path del lru
                             char* expelled_path = get_LRU(request.path);
 
                             if (expelled_path != NULL && strcmp(expelled_path, "") != 0)
                             {
+                                log_info("Target del rimpiazzamento: %s", expelled_path);
                                 // Copio il file da eliminare così da poterlo spedire al client
                                 File* to_remove = hashmap_get(files, expelled_path);
                                 memcpy(&(files_to_send[to_send]), to_remove, sizeof(File));
@@ -499,6 +522,7 @@ void* worker(void* args)
                 {
                     for (int i=0; i<to_send; i++)
                     {
+                        log_info("Invio il file rimsoso %s", files_to_send[i].path);
                         // Creo la risposta
                         ServerResponse response;
 
@@ -519,10 +543,13 @@ void* worker(void* args)
                 free(files_to_send);
                 strncat(file->content, request.content, request.content_size);
 
+                log_info("Appendo il contenuto di dimensione %d al file %s", file_size, file->path);
+
                 break;
             case CLOSEFILE:
+                log_info("Tentativo di chiusura del file %s", request.path);
                 pthread_mutex_lock(&files_mutex);
-                printf("Passata lock su file\n");
+                
                 if (hashmap_has_key(files, request.path))
                 {
                     File* to_close = (File*)hashmap_get(files, request.path);
@@ -547,12 +574,11 @@ void* worker(void* args)
                     pthread_mutex_unlock(&files_mutex);
                 }
 
-                printf("Scrivo chiusura\n");
                 // Invio la risposta
                 writen(request.client_descriptor, &to_send, sizeof(int));
-                    printf("Scritta chiusura\n");
                 break;
             case CLOSECONNECTION:;
+                log_info("Chiusura della connessione da parte del client %d", request.client_descriptor);
                 // Descrittore in formato di stringa per poterlo rimuovere
                 char desc_string[20];
                 sprintf(desc_string, "%d", request.client_descriptor);
@@ -570,6 +596,7 @@ void* worker(void* args)
                 writen(request.client_descriptor, &to_send, sizeof(to_send));
                 break;
             default:;
+                log_info("Ricevuta richiesta non supportata, chiusura della connessione al client %d", request.client_descriptor);
                 char to_remove[20];
                 sprintf(to_remove, "%d", request.client_descriptor);
                 fprintf(stderr, "Codice richiesta %d non supportato dal server\n", request.op_code);
@@ -592,26 +619,14 @@ void* worker(void* args)
         pthread_mutex_lock(&desc_set_lock);
         FD_SET(request.client_descriptor, &desc_set);
         pthread_mutex_unlock(&desc_set_lock);
-
-        // Stampo la lista dei file per debug
-        /*
-        pthread_mutex_lock(&files_mutex);
-        List vals = hashmap_get_values(files);
-        vals.printer = print_file_node;
-        printf("\n\n");
-        print_list(vals, "File presenti al momento");
-        pthread_mutex_unlock(&files_mutex);
-        */
     }
-        
-    debug++;
-    printf("Salve sono il thread %d e sto consumando 5 tipi di media differenti per evitare che un solo pensiero si formi nella mia testa\n", debug);
-    
-    return NULL;
+
+    pthread_exit(NULL);
 }
 
 void* dispatcher(void* args)
 {
+    log_info("Inizializzazione del dispatcher");
     // Maschero i segnali
     sigset_t mask, oldmask;
     sigemptyset(&mask);   
@@ -706,13 +721,13 @@ void* dispatcher(void* args)
             }
         }
     }
-
-    printf("Dispatcher terimnato\n");
+    printf("Dispatcher terminato\n");
     pthread_exit(NULL);
 }
 
 void* connession_handler(void* args)
 {
+    log_info("Inizializzazione dell'handler delle connessioni");
     // Maschero i segnali
     sigset_t mask, oldmask;
     sigemptyset(&mask);   
@@ -738,6 +753,7 @@ void* connession_handler(void* args)
         // Attendo una richiesta di connessione
         if ((client_fd = accept(socket_desc, &client_info, &client_addr_length)) > 0)
         {
+            log_info("Ricevuta richiesta di connessione dal client %d", client_fd);
             // Rialloco così i dati puntano a una locazione differente
             to_add = malloc(sizeof(int));
             *to_add = client_fd;
@@ -763,12 +779,10 @@ void* connession_handler(void* args)
             if (max_fd < client_fd)
                 max_fd = client_fd;
             pthread_mutex_unlock(&max_fd_lock);
-
-
         }
     }
     
-    printf("Accepter terminato\n");
+    printf("Connession handler terminato\n");
     pthread_exit(NULL);
 }
 
@@ -1069,6 +1083,7 @@ void* sighandler(void* param)
 
             // Segnalo che ho terminato
             must_stop = TRUE;
+            printf("Esco\n");
             // Esco      
             pthread_exit(NULL);
         }
@@ -1109,12 +1124,18 @@ void clean_everything()
     pthread_join(sighandler_tid, NULL);
 }
 
-void log_info(const char* to_log)
+void log_info(const char* fmt, ...)
 {
     char str_time[MAX_TIME_LENGTH];
     // Timestamp attuale
     time_t raw_time;
     struct tm* time_info;
+    va_list valist;
+    char buf[MAX_FILE_SIZE];
+
+    va_start(valist, fmt);
+    vsnprintf(buf, MAX_FILE_SIZE, fmt, valist);
+    va_end(valist);
 
     // Ottengo il timestamp attuale
     time(&raw_time);
@@ -1125,7 +1146,7 @@ void log_info(const char* to_log)
     // Converto il timestamp attuale in formato leggibile 
     strftime(str_time, MAX_TIME_LENGTH, "%H:%M:%S", time_info);
     // Scrivo nel file di log
-    fprintf(log_file, "%s | -> %s\n", str_time, to_log);
+    fprintf(log_file, "%s | -> %s\n", str_time, buf);
     fflush(log_file);
 
     pthread_mutex_unlock(&log_mutex);

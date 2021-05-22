@@ -23,6 +23,8 @@
     exit(errno_copy);			\
     }
 
+void flog(void (*log_function)(const char*), const char* fmt, ...);
+
 int string_to_int(char* string, int positive_constraint);
 
 char* get_absolute_path(char* relative_path);

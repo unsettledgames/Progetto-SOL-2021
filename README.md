@@ -1,13 +1,8 @@
 # Progetto-SOL-2021
 
 ## TODO LIST
-- Logging (in corso)
-  - Apertura / chiusura connessione
-  - Dettagli operazioni di lettura (nome file, dimensione file restituito)
-  - Dettagli operazioni di scrittura (dettagli sulla procedura di caching, nome file espulsi, numero byte scritti)
-  - Esito operazioni
-  - Formato: HH:mm:ss:ms -> dettagli
-  
+- -p e -h
+- Controllare che il numero di file non sia superiore al massimo nell'algoritmo di rimpiazzamento
 - Controllo errori (delicata)
 - Funzioni opzionali
   - Compressione (da valutare)
