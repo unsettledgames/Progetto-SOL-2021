@@ -11,6 +11,7 @@
 #include <pthread.h>
 #include <signal.h>
 
+#include "zlib/zlib.h"
 #include "nodes.h"
 #include "list.h"
 #include "hashmap.h"

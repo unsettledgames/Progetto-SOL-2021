@@ -2,3 +2,6 @@ Logs/*.txt
 *.sk
 Expelled
 Read/EProva per il file 2.
+deps/zlib-1.2.11/*.so
+deps/zlib-1.2.11/*.so.1
+deps/zlib-1.2.11/*.so.1.2.11
