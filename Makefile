@@ -1,5 +1,7 @@
+SHELL := /bin/bash
+
 # Phony targets dei test
-.PHONY : test1 test2
+.PHONY : clean test1 test2 test2
 
 # Opzioni di compilazione
 CC = gcc
@@ -17,16 +19,35 @@ API_FOLDER = sources/api
 
 # Dipendenze di client e server
 client_deps = sources/client.c sources/utility/utility.c libs/libdata-structures.so libs/libapi.so
-server_deps = sources/server.c sources/utility/utility.c libs/libdata-structures.so libs/libapi.so
+server_deps = sources/server.c sources/utility/utility.c libs/libdata-structures.so libs/libapi.so libs/libz.so
+
+clean:
+
+	rm -f -rf build
+	rm -f -rf libs
+	rm -f *.sk
+	rm -f server
+	rm -f client
+	
+	mkdir libs
+	mkdir build
+	mkdir build/obj
 
 all: client server
 
 # Compilazione del server
 server: $(server_deps)
-	$(CC) $(INCLUDES) $(GENERIC_FLAGS) sources/server.c sources/utility/utility.c -o server -Wl,-rpath,./libs -L ./libs -ldata-structures -lapi
+	$(CC) $(INCLUDES) $(GENERIC_FLAGS) sources/server.c sources/utility/utility.c -o server -Wl,-rpath,./libs -L ./libs -ldata-structures -lapi -lz.so
 # Compilazione del client
 client: $(client_deps)
 	$(CC) $(INCLUDES) $(GENERIC_FLAGS) sources/client.c sources/utility/utility.c -o client -Wl,-rpath,./libs -L ./libs -ldata-structures -lapi
+	
+# Make di zlib
+libs/libz.so:
+	cd deps/zlib-1.2.11
+	pwd
+	./configure; make test
+	cp zlib
 
 # Make della libreria delle strutture dati
 libs/libdata-structures.so: $(O_FOLDER)/nodes.o $(O_FOLDER)/list.o $(O_FOLDER)/hashmap.o

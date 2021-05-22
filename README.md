@@ -2,7 +2,6 @@
 
 ## TODO LIST
 - -p e -h
-- Controllare che il numero di file non sia superiore al massimo nell'algoritmo di rimpiazzamento
 - Controllo errori (delicata)
 - Funzioni opzionali
   - Compressione (da valutare)
