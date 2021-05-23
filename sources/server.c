@@ -1164,10 +1164,10 @@ void log_info(const char* fmt, ...)
    an error reading or writing the files. */
 int server_compress(char* data, char* buffer)
 {
-    printf("Uncompressed size is: %lu\n", strlen(data));
-    printf("Uncompressed string is: %s\n", data);
+    printf("Original size is: %lu\n", strlen(data));
+    printf("Original string is: %s\n", data);
 
-    printf("\n----------\n\n");
+    printf("\n----------\n");
 
     // zlib struct
     z_stream defstream;
@@ -1188,17 +1188,18 @@ int server_compress(char* data, char* buffer)
     // This is one way of getting the size of the output
     printf("Compressed size is: %lu\n", defstream.total_out);
     printf("Compressed string is: %s\n", buffer);
-
-    printf("Decompressing...\n");
+    printf("\n----------\n");
+    printf("\n----------\n");
 
     char buffer2[MAX_FILE_SIZE];
-    server_decompress(buffer, buffer2, defstream.total_out);
+    server_decompress((char*)buffer, buffer2, defstream.total_out);
 
     return 0;
 }
 
 int server_decompress(char* data, char* buffer, unsigned int data_size)
 {
+    printf("Decompressing %s with size %d\n", data, data_size);
     z_stream infstream;
     infstream.zalloc = Z_NULL;
     infstream.zfree = Z_NULL;
@@ -1206,16 +1207,16 @@ int server_decompress(char* data, char* buffer, unsigned int data_size)
     // setup "b" as the input and "c" as the compressed output
     infstream.avail_in = (uInt)data_size; // size of input
     infstream.next_in = (Bytef *)data; // input char array
-    infstream.avail_out = (uInt)sizeof(data); // size of output
-    infstream.next_out = (Bytef *)data; // output char array
+    infstream.avail_out = MAX_FILE_SIZE; // size of output
+    infstream.next_out = (Bytef *)buffer; // output char array
      
     // the actual DE-compression work.
     inflateInit(&infstream);
     inflate(&infstream, Z_NO_FLUSH);
     inflateEnd(&infstream);
      
-    printf("Uncompressed size is: %u\n", infstream.avail_out);
-    printf("Uncompressed string is: %s\n", buffer);
+    printf("Decompressed size is: %lu\n", infstream.total_out);
+    printf("Decompressed string is: %s\n", buffer);
 
     return 0;
 }
