@@ -61,6 +61,7 @@ int execute_requests(ClientConfig config, List* requests)
 
     // Debug della open con O_CREATE
 
+    /*
     printf("Valore di O_CREAT: %d\n", O_CREAT);
     char* buff = malloc(sizeof(char) * MAX_FILE_SIZE);
     char testo[] = "Testo di esempio per il file di prova aperto con O_CREATE";
@@ -72,6 +73,7 @@ int execute_requests(ClientConfig config, List* requests)
     readFile(path, (void**)&buff, &size);
     closeFile(path);
     free(buff);
+    */
 
     // Finché non ho esaurito le richieste
     while (requests->head != NULL)

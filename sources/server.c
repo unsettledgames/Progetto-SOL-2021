@@ -261,7 +261,12 @@ void* worker(void* args)
                     pthread_mutex_lock(&(to_read->lock));
                     to_read->last_used = timestamp;
                     if (to_read->is_open)
+                    {
+                        // Copio il contenuto
                         strcpy(response.content,to_read->content);
+                        // Lo decomprimo
+                        server_decompress(response.content, response.content, to_read->content_size);
+                    }
                     else
                         response.error_code = NOT_OPENED;
                     pthread_mutex_unlock(&(to_read->lock));
@@ -313,6 +318,8 @@ void* worker(void* args)
                             curr_file->last_used = timestamp;
                             strcpy(response.path, curr_file->path);
                             strcpy(response.content, curr_file->content);
+                            // Decomprimo il contenuto
+                            server_decompress(response.content, response.content, curr_file->content_size);
                         }
 
                         // Invio la risposta
@@ -341,13 +348,11 @@ void* worker(void* args)
 
                 if (hashmap_has_key(files, request.path))
                 {
-                    // Contenuto compresso del file
+                    // Contenuto compresso del file e sua dimensione
                     char compressed[MAX_FILE_SIZE];
                     memset(compressed, 0, MAX_FILE_SIZE);
                     // Comprimo il file
-                    server_compress(request.content, compressed);
-                    // Dimensione del contenuto da scrivere
-                    file_size = strlen(request.content);
+                    file_size = server_compress(request.content, request.content);
                     // Dato che esiste, prendo il file corrispondente al path
                     to_write = (File*)hashmap_get(files, request.path);
                     pthread_mutex_unlock(&files_mutex);
@@ -444,6 +449,9 @@ void* worker(void* args)
                     memcpy(response.path, files_to_send[i].path, sizeof(files_to_send[i].path));
                     memcpy(response.content, files_to_send[i].content, sizeof(files_to_send[i].content));
 
+                    // Decomprimo i dati prima di spedirli
+                    server_decompress(response.content, response.content, files_to_send[i].content_size);
+
                     // Invio la risposta
                     writen(request.client_descriptor, &response, sizeof(response));
                 }
@@ -471,7 +479,7 @@ void* worker(void* args)
                 files_to_send = malloc(sizeof(File) * files.curr_size);
                 memset(files_to_send, 0, sizeof(File) * files.curr_size);
                 // Dimensione del contenuto da appendere
-                file_size = strlen(request.content);
+                file_size = server_compress(request.content, request.content);
 
                 if (file != NULL)
                 {
@@ -527,17 +535,17 @@ void* worker(void* args)
                 {
                     for (int i=0; i<to_send; i++)
                     {
-                        log_info("Invio il file rimsoso %s", files_to_send[i].path);
+                        log_info("Invio il file rimosso %s", files_to_send[i].path);
                         // Creo la risposta
                         ServerResponse response;
 
                         response.error_code = 0;
                         memcpy(response.path, files_to_send[i].path, sizeof(response.path));
                         memcpy(response.content, files_to_send[i].content, sizeof(response.content));
-        
+                        server_decompress(response.content, response.content, files_to_send[i].content_size);
+
                         // Invio la risposta
                         writen(request.client_descriptor, &response, sizeof(response));
-                        printf("inviato file\n");
                     }
                 }
 
@@ -1215,7 +1223,7 @@ int server_decompress(char* data, char* buffer, unsigned int data_size)
     inflateEnd(&infstream);
 
     // Copio nel buffer di ritorno
-    memcpy(buffer, c, strlen(c));
+    memcpy(buffer, c, infstream.total_out);
     // Ritorno la dimensione della stringa (anche se non strettamente necessario)
-    return strlen(c);
+    return infstream.total_out;
 }
