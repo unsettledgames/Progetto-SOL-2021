@@ -343,6 +343,7 @@ void* worker(void* args)
                 {
                     // Contenuto compresso del file
                     char compressed[MAX_FILE_SIZE];
+                    memset(compressed, 0, MAX_FILE_SIZE);
                     // Comprimo il file
                     server_compress(request.content, compressed);
                     // Dimensione del contenuto da scrivere
@@ -1156,67 +1157,65 @@ void log_info(const char* fmt, ...)
     pthread_mutex_unlock(&log_mutex);
 }
 
-/* Compress from file source to file dest until EOF on source.
-   def() returns Z_OK on success, Z_MEM_ERROR if memory could not be
-   allocated for processing, Z_STREAM_ERROR if an invalid compression
-   level is supplied, Z_VERSION_ERROR if the version of zlib.h and the
-   version of the library linked do not match, or Z_ERRNO if there is
-   an error reading or writing the files. */
 int server_compress(char* data, char* buffer)
 {
-    printf("Original size is: %lu\n", strlen(data));
-    printf("Original string is: %s\n", data);
-
-    printf("\n----------\n");
+    // Buffer sorgente
+    char* a = data;
+    // Buffer intermedio che contiene a in formato compresso
+    char b[MAX_FILE_SIZE];
 
     // zlib struct
     z_stream defstream;
     defstream.zalloc = Z_NULL;
     defstream.zfree = Z_NULL;
     defstream.opaque = Z_NULL;
-    // setup "a" as the input and "b" as the compressed output
-    defstream.avail_in = (uInt)strlen(data)+1; // size of input, string + terminator
-    defstream.next_in = (Bytef *)data; // input char array
-    defstream.avail_out = (uInt)sizeof(buffer); // size of output
-    defstream.next_out = (Bytef *)buffer; // output char array
+    // Dimensione dell'input
+    defstream.avail_in = (uInt)strlen(a)+1;
+    // Input
+    defstream.next_in = (Bytef *)a;
+    // Dimensione dell'output
+    defstream.avail_out = (uInt)sizeof(b);
+    // Output
+    defstream.next_out = (Bytef *)b; // output char array
     
-    // the actual compression work.
+    // Invoco le funzioni di compressione
     deflateInit(&defstream, Z_BEST_COMPRESSION);
     deflate(&defstream, Z_FINISH);
     deflateEnd(&defstream);
-     
-    // This is one way of getting the size of the output
-    printf("Compressed size is: %lu\n", defstream.total_out);
-    printf("Compressed string is: %s\n", buffer);
-    printf("\n----------\n");
-    printf("\n----------\n");
 
-    char buffer2[MAX_FILE_SIZE];
-    server_decompress((char*)buffer, buffer2, defstream.total_out);
+    // Copio i dati nel buffer di ritorno
+    memcpy(buffer, b, strlen(b));
 
-    return 0;
+    // Ritorno la dimensione dei dati compressi
+    return defstream.total_out;
 }
 
 int server_decompress(char* data, char* buffer, unsigned int data_size)
 {
-    printf("Decompressing %s with size %d\n", data, data_size);
+    // Buffer provvisorio per la decompressione
+    char c[MAX_FILE_SIZE];
+
+    // zlib struct
     z_stream infstream;
     infstream.zalloc = Z_NULL;
     infstream.zfree = Z_NULL;
     infstream.opaque = Z_NULL;
-    // setup "b" as the input and "c" as the compressed output
-    infstream.avail_in = (uInt)data_size; // size of input
-    infstream.next_in = (Bytef *)data; // input char array
-    infstream.avail_out = MAX_FILE_SIZE; // size of output
-    infstream.next_out = (Bytef *)buffer; // output char array
+    // Dimensione input (dato da parametro)
+    infstream.avail_in = data_size;
+    // Input
+    infstream.next_in = (Bytef *)data; 
+    // Dimensione output
+    infstream.avail_out = (uInt)sizeof(c);
+    // Output
+    infstream.next_out = (Bytef *)c; 
      
-    // the actual DE-compression work.
+    // Invoco le funzioni di decompressione
     inflateInit(&infstream);
     inflate(&infstream, Z_NO_FLUSH);
     inflateEnd(&infstream);
-     
-    printf("Decompressed size is: %lu\n", infstream.total_out);
-    printf("Decompressed string is: %s\n", buffer);
 
-    return 0;
+    // Copio nel buffer di ritorno
+    memcpy(buffer, c, strlen(c));
+    // Ritorno la dimensione della stringa (anche se non strettamente necessario)
+    return strlen(c);
 }
