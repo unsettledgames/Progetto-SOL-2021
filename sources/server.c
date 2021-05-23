@@ -341,6 +341,10 @@ void* worker(void* args)
 
                 if (hashmap_has_key(files, request.path))
                 {
+                    // Contenuto compresso del file
+                    char compressed[MAX_FILE_SIZE];
+                    // Comprimo il file
+                    server_compress(request.content, compressed);
                     // Dimensione del contenuto da scrivere
                     file_size = strlen(request.content);
                     // Dato che esiste, prendo il file corrispondente al path
@@ -1150,4 +1154,68 @@ void log_info(const char* fmt, ...)
     fflush(log_file);
 
     pthread_mutex_unlock(&log_mutex);
+}
+
+/* Compress from file source to file dest until EOF on source.
+   def() returns Z_OK on success, Z_MEM_ERROR if memory could not be
+   allocated for processing, Z_STREAM_ERROR if an invalid compression
+   level is supplied, Z_VERSION_ERROR if the version of zlib.h and the
+   version of the library linked do not match, or Z_ERRNO if there is
+   an error reading or writing the files. */
+int server_compress(char* data, char* buffer)
+{
+    printf("Uncompressed size is: %lu\n", strlen(data));
+    printf("Uncompressed string is: %s\n", data);
+
+    printf("\n----------\n\n");
+
+    // zlib struct
+    z_stream defstream;
+    defstream.zalloc = Z_NULL;
+    defstream.zfree = Z_NULL;
+    defstream.opaque = Z_NULL;
+    // setup "a" as the input and "b" as the compressed output
+    defstream.avail_in = (uInt)strlen(data)+1; // size of input, string + terminator
+    defstream.next_in = (Bytef *)data; // input char array
+    defstream.avail_out = (uInt)sizeof(buffer); // size of output
+    defstream.next_out = (Bytef *)buffer; // output char array
+    
+    // the actual compression work.
+    deflateInit(&defstream, Z_BEST_COMPRESSION);
+    deflate(&defstream, Z_FINISH);
+    deflateEnd(&defstream);
+     
+    // This is one way of getting the size of the output
+    printf("Compressed size is: %lu\n", defstream.total_out);
+    printf("Compressed string is: %s\n", buffer);
+
+    printf("Decompressing...\n");
+
+    char buffer2[MAX_FILE_SIZE];
+    server_decompress(buffer, buffer2, defstream.total_out);
+
+    return 0;
+}
+
+int server_decompress(char* data, char* buffer, unsigned int data_size)
+{
+    z_stream infstream;
+    infstream.zalloc = Z_NULL;
+    infstream.zfree = Z_NULL;
+    infstream.opaque = Z_NULL;
+    // setup "b" as the input and "c" as the compressed output
+    infstream.avail_in = (uInt)data_size; // size of input
+    infstream.next_in = (Bytef *)data; // input char array
+    infstream.avail_out = (uInt)sizeof(data); // size of output
+    infstream.next_out = (Bytef *)data; // output char array
+     
+    // the actual DE-compression work.
+    inflateInit(&infstream);
+    inflate(&infstream, Z_NO_FLUSH);
+    inflateEnd(&infstream);
+     
+    printf("Uncompressed size is: %u\n", infstream.avail_out);
+    printf("Uncompressed string is: %s\n", buffer);
+
+    return 0;
 }

@@ -16,12 +16,24 @@
 #include "errors.h"
 
 #define SYSCALL_EXIT(name, r, sc, str, ...)	\
-    if ((r=sc) == -1) {				\
+    if ((r=sc) < 0) {				\
     perror(#name);				\
     int errno_copy = errno;			\
     print_error(str, __VA_ARGS__);		\
     exit(errno_copy);			\
+}
+
+#define CALL_ZLIB(x) {                                                  \
+        int status;                                                     \
+        status = x;                                                     \
+        if (status < 0) {                                               \
+            fprintf (stderr,                                            \
+                     "%s:%d: %s returned a bad status of %d.\n",        \
+                     __FILE__, __LINE__, #x, status);                   \
+            exit (EXIT_FAILURE);                                        \
+        }                                                               \
     }
+
 
 void flog(void (*log_function)(const char*), const char* fmt, ...);
 

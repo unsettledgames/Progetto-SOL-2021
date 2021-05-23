@@ -7,3 +7,7 @@
 #define MAX_PATH_LENGTH     128
 #define MAX_FILE_SIZE       900000
 #define EXTRA_LEN_PRINT_ERROR   512
+
+// ZLIB constants
+#define windowBits 15
+#define GZIP_ENCODING 16
