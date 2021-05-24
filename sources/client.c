@@ -66,7 +66,7 @@ int execute_requests(ClientConfig config, List* requests)
 
     /*
     printf("Valore di O_CREAT: %d\n", O_CREAT);
-    char* buff = malloc(sizeof(char) * MAX_FILE_SIZE);
+    char* buff = my_malloc(sizeof(char) * MAX_FILE_SIZE);
     char testo[] = "Testo di esempio per il file di prova aperto con O_CREATE";
     char path[] = "Prova.txt";
     memset(buff, 0, MAX_FILE_SIZE);
@@ -167,9 +167,7 @@ int execute_requests(ClientConfig config, List* requests)
                     char curr_path[MAX_PATH_LENGTH];
 
                     size_t n_to_read = MAX_FILE_SIZE;
-                    char* file_buffer = malloc(sizeof(char) * MAX_FILE_SIZE);
-
-                    memset(file_buffer, 0, MAX_FILE_SIZE);
+                    char* file_buffer = my_malloc(sizeof(char) * MAX_FILE_SIZE);
 
                     write_path[0] = 'E';
                     getcwd(curr_path, MAX_PATH_LENGTH);
@@ -383,8 +381,7 @@ char** parse_request_arguments(char* args)
     n_args++;
 
     // Alloco correttamente il vettore di argomenti
-    ret = malloc(sizeof(char*) * n_args);
-    memset(ret, 0, n_args);
+    ret = my_malloc(sizeof(char*) * n_args);
     
     i = 0;
 
@@ -487,21 +484,17 @@ int parse_options(Hashmap* config, List* requests, int n_args, char** args)
     unsigned short int used_name = FALSE;
     unsigned short int used_val = FALSE;
     
-    char* opt_name = malloc(sizeof(char) * OPT_NAME_LENGTH);
-    char* opt_value = malloc(sizeof(char) * OPT_VALUE_LENGTH);
+    char* opt_name = my_malloc(sizeof(char) * OPT_NAME_LENGTH);
+    char* opt_value = my_malloc(sizeof(char) * OPT_VALUE_LENGTH);
 
-    ArgLineRequest* curr_request = malloc(sizeof(ArgLineRequest));
-    memset(curr_request, 0, sizeof(ArgLineRequest));
+    ArgLineRequest* curr_request = my_malloc(sizeof(ArgLineRequest));
 
     sprintf(opt_value, "%d", 0);
     sprintf(opt_name, "p");
     hashmap_put(config, opt_value, opt_name);
 
-    opt_value = malloc(sizeof(char) * OPT_VALUE_LENGTH);
-    memset(opt_value, 0, OPT_NAME_LENGTH);
-
-    opt_name = malloc(sizeof(char) * OPT_NAME_LENGTH);
-    memset(opt_name, 0, OPT_NAME_LENGTH);
+    opt_value = my_malloc(sizeof(char) * OPT_VALUE_LENGTH);
+    opt_name = my_malloc(sizeof(char) * OPT_NAME_LENGTH);
 
     while ((opt = getopt(n_args, args, ":phf:w:W:D:R::r:d:t:l:u:c:a:")) != -1)
     {
@@ -548,8 +541,7 @@ int parse_options(Hashmap* config, List* requests, int n_args, char** args)
                 // Inserisco la richiesta nella coda delle richieste
                 list_enqueue(requests, (void*)curr_request, opt_name);
                 // Rialloco la struttura
-                curr_request = malloc(sizeof(ArgLineRequest));
-                memset(curr_request, 0, sizeof(ArgLineRequest));
+                curr_request = my_malloc(sizeof(ArgLineRequest));
 
                 used_name = TRUE;
                 used_val = TRUE;
@@ -566,8 +558,7 @@ int parse_options(Hashmap* config, List* requests, int n_args, char** args)
                 curr_request->arguments = opt_value;
                 // Metto R in coda come operazione
                 list_enqueue(requests, (void*)curr_request, NULL);
-                curr_request = malloc(sizeof(ArgLineRequest));
-                memset(curr_request, 0, sizeof(ArgLineRequest));
+                curr_request = my_malloc(sizeof(ArgLineRequest));
 
                 used_val = TRUE;
                 break;
@@ -582,17 +573,11 @@ int parse_options(Hashmap* config, List* requests, int n_args, char** args)
         }
 
         if (used_name)
-        {
             // Rialloco la chiave così la prossima volta è in una locazione diversa
-            opt_name = malloc(sizeof(char) * OPT_NAME_LENGTH);
-            memset(opt_name, 0, OPT_NAME_LENGTH);
-        }
+            opt_name = my_malloc(sizeof(char) * OPT_NAME_LENGTH);
         if (used_val)
-        {
             // Rialloco il parametro così la prossima volta è in una locazione diversa
-            opt_value = malloc(sizeof(char) * OPT_VALUE_LENGTH);
-            memset(opt_value, 0, OPT_VALUE_LENGTH);
-        }
+            opt_value = my_malloc(sizeof(char) * OPT_VALUE_LENGTH);
         
         used_name = FALSE;
         used_val = FALSE;

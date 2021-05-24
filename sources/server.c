@@ -96,7 +96,7 @@ int main(int argc, char** argv)
         log_info("Configurazione del server acquisita correttamente");
 
         // Alloco spazio per i tids
-        tids = malloc(sizeof(pthread_t) * config.n_workers);
+        tids = my_malloc(sizeof(pthread_t) * config.n_workers);
 
         // Faccio partire il thread master, che accetta le connessioni
         pthread_create(&connession_handler_tid, NULL, &connession_handler, NULL);
@@ -206,12 +206,9 @@ void* worker(void* args)
                 {
                     // Il file non esisteva, allora lo aggiungo
                     // Preparo il file da aprire
-                    File* to_open = malloc(sizeof(File));
-                    memset(to_open, 0, sizeof(File));
+                    File* to_open = my_malloc(sizeof(File));
                     // Chiave del file da aprire
-                    char* file_key = malloc(sizeof(char) * MAX_PATH_LENGTH);
-                    // Resetto la memoria della chiave
-                    memset(file_key, 0, MAX_PATH_LENGTH);
+                    char* file_key = my_malloc(sizeof(char) * MAX_PATH_LENGTH);
 
                     // Imposto il percorso
                     strncpy(to_open->path, request.path, MAX_PATH_LENGTH);
@@ -376,8 +373,7 @@ void* worker(void* args)
                                 pthread_mutex_lock(&files_mutex);
 
                                 // Nel peggiore dei casi, i file da spedire indietro sono tutti (TODO: usare una lista)
-                                files_to_send = malloc(sizeof(File) * files.curr_size);
-                                memset(files_to_send, 0, sizeof(File) * files.curr_size);
+                                files_to_send = my_malloc(sizeof(File) * files.curr_size);
 
                                 // Rimpiazzo finché non ho abbastanza spazio o finché non ho tolto abbastanza files
                                 while ((allocated_space > config.tot_space && to_send >= 0) || (n_files > config.max_files && to_send >= 0))
@@ -476,8 +472,7 @@ void* worker(void* args)
                 pthread_mutex_lock(&files_mutex);
                 File* file = (File*)hashmap_get(files, request.path);
                 // Array dei file da espellere
-                files_to_send = malloc(sizeof(File) * files.curr_size);
-                memset(files_to_send, 0, sizeof(File) * files.curr_size);
+                files_to_send = my_malloc(sizeof(File) * files.curr_size);
                 // Dimensione del contenuto da appendere
                 file_size = server_compress(request.content, request.content);
 
@@ -707,7 +702,7 @@ void* dispatcher(void* args)
                     {
                         // Puntatore per salvare la richiesta: è allocata sullo heap perché altrimenti
                         // la lista ne perderebbe traccia una volta usciti da questa funzione
-                        ClientRequest* request = malloc(sizeof(ClientRequest));
+                        ClientRequest* request = my_malloc(sizeof(ClientRequest));
                         // Dimensione dei dati letti per controllare errori
                         int read_size = readn(curr_fd, request, sizeof(*request));
 
@@ -768,10 +763,10 @@ void* connession_handler(void* args)
         {
             log_info("Ricevuta richiesta di connessione dal client %d", client_fd);
             // Rialloco così i dati puntano a una locazione differente
-            to_add = malloc(sizeof(int));
+            to_add = my_malloc(sizeof(int));
             *to_add = client_fd;
 
-            key = malloc(sizeof(char) * 20);
+            key = my_malloc(sizeof(char) * 20);
 
             // Uso come chiave l'fd del thread
             sprintf(key, "%d", client_fd);
@@ -988,8 +983,7 @@ char* get_LRU(char* current_path)
     // Timestamp iniziale, lo setto al momento attuale così sicuramente almeno un file sarà stato usato prima
     time_t timestamp;
     // Path del file da eliminare
-    char* to_ret = malloc(sizeof(char) * MAX_PATH_LENGTH);
-    memset(to_ret, 0, MAX_PATH_LENGTH);
+    char* to_ret = my_malloc(sizeof(char) * MAX_PATH_LENGTH);
 
     time(&timestamp);
 

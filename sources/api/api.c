@@ -200,7 +200,7 @@ int writeFile(const char* pathname, const char* dirname)
     // Numero di file espulsi dalla write
     int n_expelled = 0;
     // Buffer per il contenuto del file
-    char* write_buffer = malloc(sizeof(char) * MAX_FILE_SIZE);
+    char* write_buffer = my_malloc(sizeof(char) * MAX_FILE_SIZE);
     // Timestamp
     time_t timestamp;
     // return

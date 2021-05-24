@@ -172,7 +172,7 @@ int hashmap_has_key(Hashmap hm, const char* key)
 
 void print_hashmap(Hashmap hm, char* name)
 {
-    char* list_name = malloc(sizeof(char) * 1024);
+    char* list_name = my_malloc(sizeof(char) * 1024);
     printf("Printing hashmap %s\n", name);
 
     for (int i=0; i<hm.size; i++)
