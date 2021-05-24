@@ -37,6 +37,8 @@ int main(int argc, char** argv)
             // Chiusura della connessione
             closeConnection("LSOfilestorage.sk");
         }
+        else if (errno == PRINT_HELP)
+            print_client_options();
         else
         {
             fprintf(stderr, "Errore nell'inizializzazione della configurazione del client\n");
@@ -255,6 +257,7 @@ int execute_requests(ClientConfig config, List* requests)
         }
 
         // Ho esaurito una richiesta, passo alla prossima
+        free(curr_request->arguments);
         free(curr_request);
         // Pulisco la lista degli argomenti
         free(args);
@@ -407,6 +410,13 @@ ClientConfig initialize_client(Hashmap config)
     ret.request_rate = 0;
     ret.print_op_data = 0;
 
+    if (hashmap_has_key(config, "h"))
+    {
+        print_client_options();
+        errno = PRINT_HELP;
+        return ret;
+    }
+
     if (hashmap_has_key(config, "f"))
     {
         ret.socket_name = (char*)hashmap_get(config, "f");
@@ -500,10 +510,8 @@ int parse_options(Hashmap* config, List* requests, int n_args, char** args)
                 used_val = TRUE;
                 break;
             case 'h':
-                print_client_options();
-                break;
             case 'p':
-                sprintf(opt_name, "p");
+                sprintf(opt_name, "%c", opt);
                 sprintf(opt_value, "1");
                 // Uso tale stringa come chiave per il valore dell'argomento
                 hashmap_put(config, (void*)opt_value, opt_name);
@@ -520,9 +528,10 @@ int parse_options(Hashmap* config, List* requests, int n_args, char** args)
             case 'c':
             case 'a':
                 sprintf(opt_name, "%c", opt);
+                sprintf(opt_value, "%s", (char*)optarg);
                 // Salvo le informazioni passate da linea di comando
                 curr_request->code = opt;
-                curr_request->arguments = (char*)optarg;
+                curr_request->arguments = opt_value;
                 
                 // Inserisco la richiesta nella coda delle richieste
                 list_enqueue(requests, (void*)curr_request, opt_name);
@@ -531,6 +540,7 @@ int parse_options(Hashmap* config, List* requests, int n_args, char** args)
                 memset(curr_request, 0, sizeof(ArgLineRequest));
 
                 used_name = TRUE;
+                used_val = TRUE;
                 break;
             // Gestisco le istruzioni con un parametro opzionale
             case 'R':
@@ -655,7 +665,16 @@ int validate_input(Hashmap config, List requests)
 
 void print_client_options()
 {
-
+    printf("Opzioni del client:\n   \
+    -h: stampa questo messaggio.\n   \
+    -f filename: specifica il nome del socket AF_UNIX a cui connettersi.\n   \
+    -w dirname[,n=0]: invia tutti i file contenuti in dirname, ne invia al massimo n se n e' specificato.\n  \
+    -W file1[,file2]: invia i file passati come argomento.\n \
+    -D dirname: permette di salvare in dirname i file espulsi in caso di capacity miss della cache. Da usare con -w o -W.\n  \
+    -r file1[,file2]: invia i file passati come argomento.\n \
+    -d dirname: permette di salvare in dirname i file letti. Da usare con -r o -R.\n \
+    -t time: imposta un intervallo tempo minimo tra una richiesta e l'altra.\n   \
+    -p: abilita le stampe su stdout dei risultati delle operazioni.\n");
 }
 
 void print_node_request(Node* node)

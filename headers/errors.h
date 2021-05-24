@@ -11,6 +11,7 @@
 #define INCONSISTENT_INPUT_ERROR    -101
 #define NAN_INPUT_ERROR             -102
 #define INVALID_NUMBER_INPUT_ERROR  -103
+#define PRINT_HELP                  -104
 
 #define MISSING_SOCKET_NAME     -200
 #define FILESYSTEM_ERROR        -201

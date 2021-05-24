@@ -1,21 +1,12 @@
 # Progetto-SOL-2021
 
 ## TODO LIST
-- Compressione (in corso)
-  - Creare struttura z_streamp per salvare i dati necessari (buffer ecc)
-  - deflateInit per inizializzare la deflate
-  - deflate per comprimere
-  - deflateEnd per deallocare tutto ciò che è stato usato da zlib
-  - Processo simile per inflate
 - -p e -h
 - Controllo errori (delicata)
 - Funzioni opzionali
   - test3 (da valutare)
 - Polish se resta tempo (delicato)
 - Controllo finale leak e accessi in memoria (media)
-
-### COSE PREOCCUPANTI
-- Penso di non aver idea del perché la list_contains_string funzioni
 
 ### ERROR CHECKING
 - Error checking nelle strutture dati
