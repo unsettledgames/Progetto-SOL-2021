@@ -3,7 +3,7 @@
 
 Node* create_node(void* to_set, const char* key)
 {
-    Node* node = malloc(sizeof(Node));
+    Node* node = my_malloc(sizeof(Node));
 
     node->prev = NULL;
     node->next = NULL;

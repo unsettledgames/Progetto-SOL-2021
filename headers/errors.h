@@ -3,7 +3,12 @@
  #define ERRORS_H_
 
  #define OK         0
- #define NULL_PARAM 1
+ #define NULL_PARAM -1
+
+ // DATA STRUCTURES errors
+#define INDEX_OUT_OF_BOUNDS -2
+#define KEY_NOT_FOUND       -3
+#define DATA_NOT_FOUND      -4
 
 // CLIENT errors
 

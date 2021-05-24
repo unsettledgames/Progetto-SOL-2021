@@ -1,5 +1,4 @@
 #include "list.h"
-#include "string.h"
 
 /*
 int main(int argc, char** argv)
@@ -79,7 +78,7 @@ int list_enqueue(List* list, void* data, const char* key)
     // La lunghezza della lista è aumentata
     list->length++;
 
-    return 0;
+    return OK;
 }
 
 void* list_dequeue(List* list)
@@ -88,16 +87,21 @@ void* list_dequeue(List* list)
     return list_pop(list);
 }
 
-void* list_remove_by_index(List* list, unsigned int index)
+void list_remove_by_index(List* list, unsigned int index)
 {
+    errno = 0;
+
     // Indice e nodo di scorrimento
     int i = 0;
     Node* curr = list->head;
     Node* prev = NULL;
 
-    // Ritorno null se tento di cancellare un elemento oltre i limiti
+    // Ritorno se tento di cancellare un elemento oltre i limiti
     if (index >= list->length)
-        return NULL;
+    {
+        errno = INDEX_OUT_OF_BOUNDS;
+        return;
+    }
     // Se l'indice è 0, riciclo la pop
     else if (index == 0)
         return list_pop(list);
@@ -121,12 +125,11 @@ void* list_remove_by_index(List* list, unsigned int index)
     clean_node(curr, TRUE);
     // Decremento la lunghezza
     list->length--;
-
-    return 0;
 }
 
-void* list_remove_by_key(List* list, const char* key)
+void list_remove_by_key(List* list, const char* key)
 {
+    errno = 0;
     // Nodi di scorrimento
     Node* curr = list->head;
     Node* prev = NULL;
@@ -136,6 +139,13 @@ void* list_remove_by_key(List* list, const char* key)
     {
         prev = curr;
         curr = curr->next;
+    }
+
+    // Se il nodo corrente è null, non ho trovato la chiave
+    if (curr == NULL)
+    {
+        errno = KEY_NOT_FOUND;
+        return;
     }
 
     // Se ho rimosso l'ultimo elemento, aggiorno la coda
@@ -151,13 +161,11 @@ void* list_remove_by_key(List* list, const char* key)
     clean_node(curr, TRUE);
     // Decremento la lunghezza
     list->length--;
-
-    return 0;
 }
 
 int list_insert(List* list, unsigned int index, void* data, const char* key)
 {
-    //printf("pointer value: %p\n", list);
+    errno = 0;
     // Indice della lista
     int i = 0;
     // Puntatore al nodo precedente
@@ -169,9 +177,11 @@ int list_insert(List* list, unsigned int index, void* data, const char* key)
     
     // Se tento di inserire al di fuori della dimensione della lista, lo segnalo
     if (index > list->length)
-        return INVALID_INDEX;
+    {
+        errno = INDEX_OUT_OF_BOUNDS;
+        return INDEX_OUT_OF_BOUNDS;
+    }
 
-    //printf("Indice: %d, lunghezza: %d\n", index, list->length);
     // Altrimenti posso inserire
     // Caso limite, inserisco in testa e riciclo la push
     if (index == 0)
@@ -200,18 +210,26 @@ int list_insert(List* list, unsigned int index, void* data, const char* key)
     // Incremento il numero di elementi nella lista
     list->length++;
     
-    return 0;
+    return OK;
 }
 
 void* list_get(List list, unsigned int index)
 {
+    errno = 0;
     // Indice della lista
     int i = 0;
     // Puntatore alla testa
     Node* current = list.head;
 
+    // Ritorno se l'indice è troppo grande
+    if (index >= list.length)
+    {
+        errno = INDEX_OUT_OF_BOUNDS;
+        return NULL;
+    }
+
     // Scorro finché non raggiungo l'indice corretto o non finisco la lista
-    while (i < list.length && i < index) 
+    while (i < index) 
     {
         current = current->next;
         i++;
@@ -222,12 +240,14 @@ void* list_get(List list, unsigned int index)
         return current->data;
 
     // Altrimenti ritorno NULL
+    errno = DATA_NOT_FOUND;
     return NULL;
 }
 
 
 void* list_pop(List* list)
 {
+    errno = OK;
     // Puntatore alla testa
     Node* curr = list->head;
     // Puntatore ai dati del nodo, così posso deallocarlo senza perderli
@@ -251,15 +271,13 @@ void* list_pop(List* list)
         return data;
     }
 
+    errno = DATA_NOT_FOUND;
     return NULL;
 }
 
 int list_push(List* list, void* data, const char* key)
 {
-    // Ritorno null se i dati non esistono
-    if (data == NULL)
-        return NO_DATA;
-
+    errno = 0;
     // Altrimenti creo un nuovo nodo con i dati
     Node* to_add = create_node(data, key);
     // E lo imposto come nuova testa della lista
@@ -272,7 +290,7 @@ int list_push(List* list, void* data, const char* key)
     if (list->length == 1)
         list->tail = list->head;
 
-    return 0;
+    return OK;
 }
 
 int list_contains_key(List list, const char* key)
@@ -292,6 +310,7 @@ int list_contains_key(List list, const char* key)
 
 int list_contains_string(List list, const char* str)
 {
+    errno = 0;
     Node* curr = list.head;
     int i = 0;
 
@@ -306,6 +325,7 @@ int list_contains_string(List list, const char* str)
         curr = curr->next;
     }
 
+    errno = NOT_FOUND;
     return NOT_FOUND;
 }
 
@@ -317,8 +337,7 @@ void print_list(List to_print, char* name)
     {
         printf("List %s is empty (size = %d)\n", name, to_print.length);
         return;
-    }
-        
+    }   
 
     Node* curr = to_print.head;
 

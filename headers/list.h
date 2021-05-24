@@ -2,8 +2,10 @@
 #define LIST_H_
 
 #include <stdio.h>
+#include <string.h>
 #include <stdlib.h>
 #include "nodes.h"
+#include "utility.h"
 
 #define INVALID_INDEX   -1
 #define NO_DATA         -2
@@ -22,9 +24,9 @@ void list_initialize(List* list, void (*printer)(Node*));
 
 void list_clean(List list, void (*cleaner)(Node*));
 
-void* list_remove_by_index(List* list, unsigned int index);
+void list_remove_by_index(List* list, unsigned int index);
 
-void* list_remove_by_key(List* list, const char* key);
+void list_remove_by_key(List* list, const char* key);
 
 void* list_get(List list, unsigned int index);
 

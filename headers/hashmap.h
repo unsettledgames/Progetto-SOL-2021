@@ -4,6 +4,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include "list.h"
+#include "utility.h"
 #include "string.h"
 
 typedef struct hashmap
@@ -20,7 +21,7 @@ void hashmap_clean(Hashmap hm, void (*cleaner) (Node*));
 
 void* hashmap_get(Hashmap hm, const char* key);
 
-int hashmap_put(Hashmap* hm, void* data, const char* key);
+void hashmap_put(Hashmap* hm, void* data, const char* key);
 
 int hashmap_hash(const char* key, int size);
 
@@ -30,6 +31,6 @@ int hashmap_remove(Hashmap* hm, const char* key);
 
 int hashmap_has_key(Hashmap hm, const char* key);
 
-List hashmap_get_values(Hashmap hm);
+//List hashmap_get_values(Hashmap hm);
 
 #endif

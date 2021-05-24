@@ -53,6 +53,7 @@ int main(int argc, char** argv)
 
 int execute_requests(ClientConfig config, List* requests)
 {
+    int must_print = config.print_op_data;
     // Debug della append
 /*
     openFile("/mnt/c/Users/nicol/OneDrive/Desktop/Git projects/Progetto-SOL-2021/TestDir/file1.txt", 0);
@@ -111,6 +112,11 @@ int execute_requests(ClientConfig config, List* requests)
 
                 if (n_files == 0)
                     n_files--;
+
+                if (must_print) {
+                    printf("Tentativo di invio di %d files dalla cartella %s. Seguono dettagli per ogni scrittura.\n",
+                        n_files, directory);
+                }
                 // Visito ricorsivamente la directory finché non ho spedito il numero corretto di file
                 send_from_dir(directory, &n_files, config.expelled_dir);
                 
@@ -270,6 +276,7 @@ int execute_requests(ClientConfig config, List* requests)
 
 int send_from_dir(const char* dirpath, int* n_files, const char* write_dir)
 {
+    //int must_print = client_configuration.print_op_data;
     // Se ho finito, ritorno
     if (n_files == 0)
         return 0;
@@ -339,6 +346,11 @@ int send_from_dir(const char* dirpath, int* n_files, const char* write_dir)
                 // Se l'invio è avvenuto con successo, segnalo che ho scritto un file
                 if (writeFile(full_path, write_dir) == 0)
                     (*n_files)--;
+
+                /*if (must_print) {
+                    printf("Tentativo di scrittura di %d bytes sul file %s. Esito: %d\n",
+                        op, );
+                }*/
                 closeFile(full_path);
             }
             

@@ -25,12 +25,15 @@ void* my_malloc(size_t size)
 {
     void* ret = malloc(size);
     
+    // Gestisco l'errore
     if (ret == NULL)
     {
         perror("Errore di allocazione della memoria: ");
         exit(EXIT_FAILURE);
     }
 
+    // Resetto la memoria allo stesso tempo
+    memset(ret, 0, size);
     return ret;
 }
 
@@ -102,12 +105,4 @@ int create_dir_if_not_exists(const char* dirname)
     }
 
     return NULL_PARAM;
-}
-
-void flog(void (*log_function)(const char*), const char* fmt, ...)
-{
-    va_list valist;
-    char buf[512];
-    sprintf(buf, fmt, valist);
-    log_function(buf);
 }

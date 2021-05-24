@@ -15,12 +15,46 @@
 #include "consts.h"
 #include "errors.h"
 
+
 #define SYSCALL_EXIT(name, r, sc, str, ...)	\
-    if ((r=sc) < 0) {				\
-    perror(#name);				\
-    int errno_copy = errno;			\
-    print_error(str, __VA_ARGS__);		\
-    exit(errno_copy);			\
+    if ((r=sc) == -1) {				\
+	perror(#name);				\
+	int errno_copy = errno;			\
+	print_error(str, __VA_ARGS__);		\
+	exit(errno_copy);			\
+}
+
+#define SYSCALL_PRINT(name, r, sc, str, ...)	\
+    if ((r=sc) == -1) {				\
+	perror(#name);				\
+	int errno_copy = errno;			\
+	print_error(str, __VA_ARGS__);		\
+	errno = errno_copy;			\
+}
+
+#define SYSCALL_RETURN(name, r, sc, str, ...)	\
+    if ((r=sc) == -1) {				\
+	perror(#name);				\
+	int errno_copy = errno;			\
+	print_error(str, __VA_ARGS__);		\
+	errno = errno_copy;			\
+	return r;                               \
+}
+
+
+#define LOCK(l)      if (pthread_mutex_lock(l)!=0)        { \
+    fprintf(stderr, "ERRORE FATALE lock\n");		    \
+    pthread_exit((void*)EXIT_FAILURE);			    \
+}   
+
+#define UNLOCK(l)    if (pthread_mutex_unlock(l)!=0)      { \
+    fprintf(stderr, "ERRORE FATALE unlock\n");		    \
+    pthread_exit((void*)EXIT_FAILURE);				    \
+}
+
+#define WAIT(c,l)    if (pthread_cond_wait(c,l)!=0)       { \
+    fprintf(stderr, "ERRORE FATALE wait\n");		    \
+    pthread_exit((void*)EXIT_FAILURE);				    \
 }
 
 #define CALL_ZLIB(x) {                                                  \
@@ -33,9 +67,6 @@
             exit (EXIT_FAILURE);                                        \
         }                                                               \
     }
-
-
-void flog(void (*log_function)(const char*), const char* fmt, ...);
 
 int string_to_int(char* string, int positive_constraint);
 

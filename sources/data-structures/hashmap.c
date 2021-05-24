@@ -1,5 +1,3 @@
-#include <stdio.h>
-#include <stdlib.h>
 #include "hashmap.h"
 
 /*
@@ -39,7 +37,7 @@ int main(int argc, char** argv)
 }
 
 */
-
+/*
 List hashmap_get_values(Hashmap hm)
 {
     // Lista di ritorno, la inizializzo
@@ -69,10 +67,11 @@ List hashmap_get_values(Hashmap hm)
 
     return ret;
 }
+*/
 
 void hashmap_initialize(Hashmap* hm, int size, void (*printer) (Node* to_print))
 {
-    hm->lists = malloc(sizeof(List) * size);
+    hm->lists = my_malloc(sizeof(List) * size);
     hm->size = size;
     hm->printer = printer;
     hm->curr_size = 0;
@@ -105,6 +104,7 @@ int hashmap_hash(const char* key, int size)
 
 void* hashmap_get(Hashmap hm, const char* key)
 {
+    errno = 0;
     // Nodo per lo scorrimento della lista
     Node* curr = NULL;
     // Indice della lista a partire dalla chiave
@@ -116,16 +116,16 @@ void* hashmap_get(Hashmap hm, const char* key)
 
     // Scorro finché non finisco la lista o finché non ho trovato la chiave corretta
     while (curr != NULL && strcmp(key, curr->key) != 0)
-    {
         curr = curr->next;
-    }
 
     if (curr != NULL)
         return curr->data;
+
+    errno = DATA_NOT_FOUND;
     return NULL;
 }
 
-int hashmap_put(Hashmap* hm, void* data, const char* key)
+void hashmap_put(Hashmap* hm, void* data, const char* key)
 {
     // Indice della lista in cui inserire
     int index = hashmap_hash(key, hm->size);
@@ -137,20 +137,23 @@ int hashmap_put(Hashmap* hm, void* data, const char* key)
     list_push(&(hm->lists[index]), data, key);
 
     hm->curr_size++;
-
-    return 0;
 }
 
 int hashmap_remove(Hashmap* hm, const char* key)
 {
+    errno = 0;
     // Indice della lista da cui rimuovere
     int index = hashmap_hash(key, hm->size);
     // Rimuovo dalla lista
     list_remove_by_key(&(hm->lists[index]), key);
-    
-    hm->curr_size--;
 
-    return 0;
+    if (errno == OK)
+    {
+        hm->curr_size--;
+        return OK;
+    }
+
+    return errno;
 }
 
 int hashmap_has_key(Hashmap hm, const char* key)
