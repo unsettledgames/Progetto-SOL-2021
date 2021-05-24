@@ -81,21 +81,26 @@ static int handle_expelled_files(int to_read, const char* dirname)
             {
                 // Aggiungo 'expelled' al nome del file espulso
                 strncpy(&expelled_path[1], response.path, MAX_PATH_LENGTH);
+                // Evito di creare una cartella
                 replace_char(expelled_path, '/', '-');
+
                 // Scrivo nella cartella
                 FILE* file = fopen(expelled_path, "wb");
-                printf("Path: %s\n", expelled_path);
+
                 if (fwrite(response.content, sizeof(char), sizeof(response.content), file) <= 0)
+                {
+                    fclose(file);
                     return WRITE_FILE_ERROR;
+                }
+                    
                 fclose(file);
-                
             }
-            else
-                // Stampo e basta
-                printf("File ricevuto:%s\n", response.path);
         }
         else
+        {
+            fprintf(stderr, "E' stato impossibile espellere un file.\n");
             err = EXPELLED_FILE_FAILED;
+        }
 
         to_read--;
     }
@@ -112,15 +117,16 @@ static int handle_expelled_files(int to_read, const char* dirname)
 
 int openConnection(const char* sockname, int msec, const struct timespec abstime)
 {
+    // Codice di errore
+    int err = 0;
     // Creo il socket
-    socket_fd = socket(AF_UNIX, SOCK_STREAM, 0);
+    SYSCALL_RETURN("socket", socket_fd, socket(AF_UNIX, SOCK_STREAM, 0), "Errore creazione del socket.\n", "");
     // Indirizzo del socket
     struct sockaddr_un address;
-    // Valore di ritorno della connect
-    int err = -1;
+    
     // Struttura per tenere traccia del tempo
     struct timespec curr_time;
-    clock_gettime(CLOCK_REALTIME, &curr_time);
+    SYSCALL_RETURN("clock_gettime", err, clock_gettime(CLOCK_REALTIME, &curr_time), "Impossibile ottenere il tempo corrente.\n", "");
 
     strncpy(address.sun_path, sockname, strlen(sockname));
     address.sun_family = AF_UNIX;
@@ -131,17 +137,17 @@ int openConnection(const char* sockname, int msec, const struct timespec abstime
     {
         printf("Server irraggiungibile, ritento...\n");
         sleep(msec / 1000);
-        clock_gettime(CLOCK_REALTIME, &curr_time);
+        err = 0;
+        SYSCALL_RETURN("clock_gettime", err, clock_gettime(CLOCK_REALTIME, &curr_time), "Impossibile ottenere il tempo corrente.\n", "");
     }
 
     if (err != -1)
     {
         printf("Client connesso con successo.\n");
-        return 0;
+        return OK;
     }
 
-    perror("Impossibile connettersi al server");
-    exit(EXIT_FAILURE);
+    return CONNECTION_TIMEOUT;
 }
 
 int closeConnection(const char* sockname)
@@ -149,21 +155,25 @@ int closeConnection(const char* sockname)
     ClientRequest to_send;
     time_t timestamp;
     int reply;
+    int n_written, n_read;
 
     memset(&to_send, 0, sizeof(to_send));
     time(&timestamp);
     to_send.op_code = CLOSECONNECTION;
     to_send.timestamp = timestamp;
 
+    errno = 0;
     // Invio la richiesta
-    writen(socket_fd, &to_send, sizeof(to_send));
+    SYSCALL_RETURN("writen", n_written, writen(socket_fd, &to_send, sizeof(to_send)), 
+        "Impossibile terminare la connessione (writen)", "");
     // Ricevo la risposta
-    readn(socket_fd, &reply, sizeof(reply));
+    SYSCALL_RETURN("readn", n_read, readn(socket_fd, &reply, sizeof(reply)), 
+        "Impossibile terminare la connessione (writen)", "");
 
     // Chiudo il socket
-    close(socket_fd);
+    SYSCALL_RETURN("close", n_read, close(socket_fd), "Impossibile chiudere il socket", "");
 
-    return reply;
+    return OK;
 }
 
 int openFile(const char* pathname, int flags)
@@ -174,6 +184,7 @@ int openFile(const char* pathname, int flags)
     ClientRequest to_send;
     time_t timestamp;
     int reply = 0;
+    int n_read, n_written;
 
     // Ottengo il path corretto (relativo o assoluto)
     get_right_path(pathname, path, MAX_PATH_LENGTH);
@@ -188,13 +199,14 @@ int openFile(const char* pathname, int flags)
     to_send.timestamp = timestamp;
     to_send.op_code = OPENFILE;
     
-    writen(socket_fd, &to_send, sizeof(to_send));
-    readn(socket_fd, &reply, sizeof(reply));
+    SYSCALL_RETURN("writen", n_written, writen(socket_fd, &to_send, sizeof(to_send), 
+        "Impossibile inviare la richiesta di apertura", "");
+    SYSCALL_RETURN("readn", n_read, readn(socket_fd, &reply, sizeof(reply)), 
+        "Impossibile ricevere l'esito della richiesta di apertura", "");
 
     return reply;
 }
 
-// TODO: here
 int writeFile(const char* pathname, const char* dirname)
 {
     // Numero di file espulsi dalla write
@@ -207,6 +219,7 @@ int writeFile(const char* pathname, const char* dirname)
     int ret = 0;
     // Path da utilizzare per l'invio
     char path[MAX_PATH_LENGTH];
+    int n_read, n_written;
 
     time(&timestamp);
 
@@ -218,15 +231,18 @@ int writeFile(const char* pathname, const char* dirname)
 
     if (to_read == NULL)
     {
-        fprintf(stderr, "Errore nell'apertura del file da inviare %s\n", path);
+        fprintf(stderr, "Errore nell'apertura del file da scrivere (errore %d)\n", errno);
         free(write_buffer);
         return OPEN_FAILED;
     }
 
     // Leggo il contenuto del file
-    fread(write_buffer, sizeof(char), MAX_FILE_SIZE, to_read);
-    // Chiudo il file
-    fclose(to_read);
+    n_read = fread(write_buffer, sizeof(char), MAX_FILE_SIZE, to_read);
+    if (n_read < 0) {
+        fprintf(stderr, "Lettura del file da inviare fallita (errore %d)\n", errno);
+        fclose(to_read);
+        return errno;
+    }
 
     // Creo una richiesta
     ClientRequest to_send;
@@ -238,12 +254,17 @@ int writeFile(const char* pathname, const char* dirname)
     to_send.timestamp = timestamp;
 
     // Invio i dati
-    writen(socket_fd, &to_send, sizeof(to_send));
+    SYSCALL_RETURN("writen", n_written, writen(socket_fd, &to_send, sizeof(to_send)), 
+        "Invio della richiesta di scrittura fallito.\n", "");
     // Ricevo il numero di file espulsi
-    readn(socket_fd, &n_expelled, sizeof(n_expelled));
+    SYSCALL_RETURN("writen", n_read, readn(socket_fd, &n_expelled, sizeof(n_expelled)), 
+        "Ricezione del numero di file espulsi dalla cache fallito.\n", "");
 
     if (n_expelled < 0)
+    {
+        fprintf(stderr, "Errore lato server nell'invio dei file espulsi.\n");
         return n_expelled;
+    }
     // Gestisco i file espulsi
     ret = handle_expelled_files(n_expelled, dirname);
 
@@ -262,6 +283,7 @@ int readFile(const char* pathname, void** buf, size_t* size)
     ServerResponse to_receive;
     // Path del file
     char path[MAX_PATH_LENGTH];
+    int n_read, n_written;
 
     get_right_path(pathname, path, MAX_PATH_LENGTH);
 
@@ -273,29 +295,25 @@ int readFile(const char* pathname, void** buf, size_t* size)
     to_send.op_code = READFILE;
 
     // Invio la richiesta
-    writen(socket_fd, &to_send, sizeof(to_send));
+    SYSCALL_RETURN("writen", n_written, writen(socket_fd, &to_send, sizeof(to_send)),
+        "Errore nell'invio della richiesta di apertura del file.\n", "");
     // Ricevo la risposta
-    readn(socket_fd, &to_receive, sizeof(to_receive));
+    SYSCALL_RETURN("writen", n_read, readn(socket_fd, &to_receive, sizeof(to_receive)),
+        "Errore nell'invio della richiesta di apertura del file.\n", "");
 
     if (to_receive.error_code == OK)
-    {
         memcpy(*buf, to_receive.content, *size);
-        // Scrivo il file nella cartella passata da linea di comando se necessario
-    }    
+    else
+    {
+        fprintf(stderr, "Errore lato server nella lettura del file.\n");
+        return to_receive.error_code;
+    }
 
     // Termino
-    return to_receive.error_code;
+    return OK;
 }
 
-/**
-    Molto nebulosa e ambigua.
-    1) Non ho i nomi dei file che voglio
-    2) Ritorna un intero, quindi devo per forza stampare nell'api
-    3) Se il client non setta -p questa non dovrebbe stampare, quindi dovrei passare pure p
-    4) Non avendo i nomi, non posso aprire i file e quindi contravvengo al principio per cui per leggere un 
-       file dovrei prima aprirlo.
 
-*/
 int readNFiles(int n, const char* dirname)
 {
     // Timestamp

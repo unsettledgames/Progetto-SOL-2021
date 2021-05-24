@@ -15,31 +15,31 @@
 #include "consts.h"
 #include "errors.h"
 
-
 #define SYSCALL_EXIT(name, r, sc, str, ...)	\
     if ((r=sc) == -1) {				\
-	perror(#name);				\
-	int errno_copy = errno;			\
-	print_error(str, __VA_ARGS__);		\
-	exit(errno_copy);			\
-}
+        perror(#name);				\
+        int errno_copy = errno;			\
+        print_error(str, __VA_ARGS__);		\
+        exit(errno_copy);			\
+    }
+
 
 #define SYSCALL_PRINT(name, r, sc, str, ...)	\
     if ((r=sc) == -1) {				\
-	perror(#name);				\
-	int errno_copy = errno;			\
-	print_error(str, __VA_ARGS__);		\
-	errno = errno_copy;			\
-}
+        perror(#name);				\
+        int errno_copy = errno;			\
+        print_error(str, __VA_ARGS__);		\
+        errno = errno_copy;			\
+    }
 
 #define SYSCALL_RETURN(name, r, sc, str, ...)	\
     if ((r=sc) == -1) {				\
-	perror(#name);				\
-	int errno_copy = errno;			\
-	print_error(str, __VA_ARGS__);		\
-	errno = errno_copy;			\
-	return r;                               \
-}
+        perror(#name);				\
+        int errno_copy = errno;			\
+        print_error(str, __VA_ARGS__);		\
+        errno = errno_copy;			\
+        return r;                               \
+    }
 
 
 #define LOCK(l)      if (pthread_mutex_lock(l)!=0)        { \

@@ -104,7 +104,7 @@ void list_remove_by_index(List* list, unsigned int index)
     }
     // Se l'indice è 0, riciclo la pop
     else if (index == 0)
-        return list_pop(list);
+        list_pop(list);
 
     // Altrimenti scorro per trovare l'indice giusto del nodo che voglio cancellare
     while (i < index && i < list->length)

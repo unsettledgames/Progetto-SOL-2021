@@ -28,10 +28,15 @@ int main(int argc, char** argv)
         {
             // Ottenimento dell'orario, aggiungo 10 secondi
             clock_gettime(CLOCK_REALTIME, &time);
-            time.tv_sec += 10;
+            time.tv_sec += 2;
 
             // Apertura della connessione
-            openConnection(client_configuration.socket_name, 1000, time);
+            if (openConnection(client_configuration.socket_name, 1000, time) != OK)
+            {
+                fprintf(stderr, "Impossibile connettersi al server");
+                clean_client(config, requests);
+                return errno;
+            }
             // Esecuzione delle richieste
             execute_requests(client_configuration, &requests);
             // Chiusura della connessione
@@ -480,6 +485,8 @@ void print_client_config(ClientConfig to_print)
 
 int parse_options(Hashmap* config, List* requests, int n_args, char** args)
 {
+    errno = 0;
+
     int opt;
     unsigned short int used_name = FALSE;
     unsigned short int used_val = FALSE;
@@ -564,9 +571,11 @@ int parse_options(Hashmap* config, List* requests, int n_args, char** args)
                 break;
             case ':':
                 fprintf(stderr, "L'opzione %c necessita di un parametro.\n", optopt);
+                errno = CLIENT_ARGS_ERROR;
                 break;
             case '?':
                 fprintf(stderr, "L'opzione %c non e' riconosciuta.\n", optopt);
+                errno = CLIENT_ARGS_ERROR;
                 break;
             default:
                 break;
@@ -587,17 +596,21 @@ int parse_options(Hashmap* config, List* requests, int n_args, char** args)
     free(opt_value);
     free(curr_request);
 
+    if (errno == CLIENT_ARGS_ERROR)
+        return CLIENT_ARGS_ERROR;
     return validate_input(*config, *requests);
 }
 
 int validate_input(Hashmap config, List requests)
 {
+    errno = 0;
     // -D va usata con -W o -w
     if (hashmap_has_key(config, "D"))
     {
         if (!(list_contains_key(requests, "w") || list_contains_key(requests, "W")))
         {
             fprintf(stderr, "L'opzione -D non puo' essere usata senza -w o -W.\n");
+            errno = INCONSISTENT_INPUT_ERROR;
             return INCONSISTENT_INPUT_ERROR;
         }
     }
@@ -608,6 +621,7 @@ int validate_input(Hashmap config, List requests)
         if (!(list_contains_string(requests, "r") || list_contains_string(requests, "R")))
         {
             fprintf(stderr, "L'opzione -d non puo' essere usata senza -r o -R.\n");
+            errno = INCONSISTENT_INPUT_ERROR;
             return INCONSISTENT_INPUT_ERROR;
         }
     }
@@ -625,7 +639,7 @@ int validate_input(Hashmap config, List requests)
         if ((t == 0 && errno != 0) || (t == 0 && endptr == t_value))
         {
             fprintf(stderr, "Il parametro di -t non è valido.\n");
-            errno = 0;
+            errno = NAN_INPUT_ERROR;
             return NAN_INPUT_ERROR;
         }
         else
@@ -633,6 +647,7 @@ int validate_input(Hashmap config, List requests)
             if (t < 0)
             {
                 fprintf(stderr, "Il parametro di -t non puo' essere un numero negativo.\n");
+                errno = INVALID_NUMBER_INPUT_ERROR;
                 return INVALID_NUMBER_INPUT_ERROR;
             }
         }
@@ -652,12 +667,12 @@ int validate_input(Hashmap config, List requests)
         if ((R == 0 && errno != 0) || (R == 0 && endptr == R_value->arguments))
         {
             fprintf(stderr, "Il parametro di -R non è valido.\n");
-            errno = 0;
+            errno = NAN_INPUT_ERROR;
             return NAN_INPUT_ERROR;
         }
     }
 
-    return 0;
+    return OK;
 }
 
 void print_client_options()
