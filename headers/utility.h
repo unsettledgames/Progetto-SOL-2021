@@ -33,12 +33,12 @@
     }
 
 #define SYSCALL_RETURN(name, r, sc, str, ...)	\
-    if ((r=sc) == -1) {				\
+    if ((r=sc) < 0) {				\
         perror(#name);				\
         int errno_copy = errno;			\
         print_error(str, __VA_ARGS__);		\
         errno = errno_copy;			\
-        return r;                               \
+        return -1;                               \
     }
 
 

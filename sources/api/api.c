@@ -89,11 +89,11 @@ static int handle_expelled_files(int to_read, const char* dirname)
 
                 if (fwrite(response.content, sizeof(char), sizeof(response.content), file) <= 0)
                 {
-                    fclose(file);
+                    SYSCALL_EXIT("fclose", err, fclose(file), "Impossibile chiudere il file", "");
                     return WRITE_FILE_ERROR;
                 }
                     
-                fclose(file);
+                SYSCALL_EXIT("fclose", err, fclose(file), "Impossibile chiudere il file", "");
             }
         }
         else
@@ -117,6 +117,7 @@ static int handle_expelled_files(int to_read, const char* dirname)
 
 int openConnection(const char* sockname, int msec, const struct timespec abstime)
 {
+    errno = 0;
     // Codice di errore
     int err = 0;
     // Creo il socket
@@ -147,6 +148,7 @@ int openConnection(const char* sockname, int msec, const struct timespec abstime
         return OK;
     }
 
+    errno = CONNECTION_TIMEOUT;
     return CONNECTION_TIMEOUT;
 }
 
@@ -157,12 +159,13 @@ int closeConnection(const char* sockname)
     int reply;
     int n_written, n_read;
 
+    errno = 0;
+
     memset(&to_send, 0, sizeof(to_send));
     time(&timestamp);
     to_send.op_code = CLOSECONNECTION;
     to_send.timestamp = timestamp;
 
-    errno = 0;
     // Invio la richiesta
     SYSCALL_RETURN("writen", n_written, writen(socket_fd, &to_send, sizeof(to_send)), 
         "Impossibile terminare la connessione (writen)", "");
@@ -185,6 +188,8 @@ int openFile(const char* pathname, int flags)
     time_t timestamp;
     int reply = 0;
     int n_read, n_written;
+
+    errno = 0;
 
     // Ottengo il path corretto (relativo o assoluto)
     get_right_path(pathname, path, MAX_PATH_LENGTH);
@@ -221,6 +226,7 @@ int writeFile(const char* pathname, const char* dirname)
     char path[MAX_PATH_LENGTH];
     int n_read, n_written;
 
+    errno = 0;
     time(&timestamp);
 
     get_right_path(pathname, path, MAX_PATH_LENGTH);
@@ -240,7 +246,7 @@ int writeFile(const char* pathname, const char* dirname)
     n_read = fread(write_buffer, sizeof(char), MAX_FILE_SIZE, to_read);
     if (n_read < 0) {
         fprintf(stderr, "Lettura del file da inviare fallita (errore %d)\n", errno);
-        fclose(to_read);
+        SYSCALL_EXIT("fclose", err, fclose(file), "Impossibile chiudere il file", "");
         return errno;
     }
 
@@ -285,6 +291,8 @@ int readFile(const char* pathname, void** buf, size_t* size)
     char path[MAX_PATH_LENGTH];
     int n_read, n_written;
 
+    errno = 0;
+
     get_right_path(pathname, path, MAX_PATH_LENGTH);
 
     memset(&to_send, 0, sizeof(to_send));
@@ -322,6 +330,8 @@ int readNFiles(int n, const char* dirname)
     // Valore di ritorno
     int ret = 0;
     int n_read, n_written;
+
+    errno = 0;
 
     // Richiesta del client
     ClientRequest request;
@@ -363,6 +373,8 @@ int appendToFile(const char* pathname, void* buf, size_t size, const char* dirna
     // Path del file
     char path[MAX_PATH_LENGTH];
     int n_read, n_written;
+
+    errno = 0;
 
     get_right_path(pathname, path, MAX_PATH_LENGTH);
     memset(&to_send, 0, sizeof(to_send));
@@ -407,6 +419,8 @@ int closeFile(const char* pathname)
     // Path del file
     char path[MAX_PATH_LENGTH];
     int n_read, n_written;
+
+    errno = 0;
 
     get_right_path(pathname, path, MAX_PATH_LENGTH);
 

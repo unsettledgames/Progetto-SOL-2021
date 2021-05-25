@@ -33,14 +33,15 @@ int main(int argc, char** argv)
             // Apertura della connessione
             if (openConnection(client_configuration.socket_name, 1000, time) != OK)
             {
-                fprintf(stderr, "Impossibile connettersi al server");
+                fprintf(stderr, "Impossibile connettersi al server (errore %d)\n", errno);
                 clean_client(config, requests);
                 return errno;
             }
             // Esecuzione delle richieste
             execute_requests(client_configuration, &requests);
             // Chiusura della connessione
-            closeConnection("LSOfilestorage.sk");
+            if (closeConnection("LSOfilestorage.sk") != OK)
+                fprintf(stderr, "Errore nella chiusura della connessione verso il server (%d)\n", errno);
         }
         else if (errno == PRINT_HELP)
             print_client_options();
@@ -51,6 +52,8 @@ int main(int argc, char** argv)
             return errno;
         }
     }
+    else
+        fprintf(stderr, "Errore nel parsing dei dati da linea di comando (errore %d)\n", errno);
 
     clean_client(config, requests);
     return 0;
@@ -104,6 +107,12 @@ int execute_requests(ClientConfig config, List* requests)
                 // Secondo argomento (se c'è): numero massimo di file da inviare
                 int n_files = -1;
 
+                if (directory == NULL)
+                {
+                    fprintf(stderr, "Impossibile spedire file contenuti in una directory NULL\n");
+                    break;
+                }
+
                 if (args[1] != NULL)
                 {
                     n_files = string_to_int(args[1], TRUE);
@@ -111,19 +120,19 @@ int execute_requests(ClientConfig config, List* requests)
                     if (errno != 0)
                     {
                         fprintf(stderr, "Errore nella conversione del secondo parametro di -w\n");
-                        return errno;
+                        break;
                     }
                 }
 
                 if (n_files == 0)
                     n_files--;
 
-                if (must_print) {
+                if (must_print) 
                     printf("Tentativo di invio di %d files dalla cartella %s. Seguono dettagli per ogni scrittura.\n",
                         n_files, directory);
-                }
                 // Visito ricorsivamente la directory finché non ho spedito il numero corretto di file
-                send_from_dir(directory, &n_files, config.expelled_dir);
+                if (send_from_dir(directory, &n_files, config.expelled_dir) != OK)
+                    perror("Impossibile inviare tutti i file.\n");
                 
                 break;
             case 'W':;
@@ -135,14 +144,24 @@ int execute_requests(ClientConfig config, List* requests)
                     int err;
 
                     if ((err = openFile(args[i], (1 << O_CREATE))) != 0)
-                        fprintf(stderr, "Impossibile scrivere il file %s, operazione annullata (errore %d).\n", args[i], err);
+                    {
+                        fprintf(stderr, "Impossibile scrivere il file %s, operazione annullata (errore %d).\n", args[i], errno);
+                        continue;
+                    }
                     else
                     {
                         if ((err = writeFile(args[i], config.expelled_dir)) != 0)
-                            fprintf(stderr, "Impossibile scrivere il file (errore %d)\n", err);
+                        {
+                            fprintf(stderr, "Impossibile scrivere il file (errore %d)\n", errno);
+                            continue;
+                        }
                     }
 
-                    closeFile(args[i]);
+                    if (closeFile(args[i]) != OK)
+                    {
+                        fprintf(stderr, "Impossibile chiudere il file (errore %d)\n", errno);
+                        continue;
+                    }
                     i++;
                 }
 
@@ -152,13 +171,24 @@ int execute_requests(ClientConfig config, List* requests)
                 int err;
 
                 if ((err = openFile(args[0], 0)) != 0)
-                    perror("Errore nell'apertura del file");
+                {
+                    fprintf(stderr, "Impossibile aprire il file (errore %d)\n", errno);
+                    continue;
+                }
                 else
                 {
                     err = appendToFile(args[0], args[1], strlen(args[1]), config.expelled_dir);
-                    if (err != 0)
-                        perror("Impossibile appendere al file");
-                    closeFile(args[0]);
+                    if (err != OK)
+                    {
+                        fprintf(stderr, "Impossibile appendere al file (errore %d)\n", errno);
+                        continue;
+                    }
+                    
+                    if (closeFile(args[0]) != OK)
+                    {
+                        fprintf(stderr, "Impossibile chiudere il file (errore %d)\n", errno);
+                        continue;
+                    }
                 }
 
                 break;
@@ -178,40 +208,69 @@ int execute_requests(ClientConfig config, List* requests)
                     getcwd(curr_path, MAX_PATH_LENGTH);
 
                     if (openFile(args[i], 0) != 0)
-                        fprintf(stderr, "Impossibile aprire il file %s, operazione annullata.\n", args[i]);
-                    else
                     {
-                        // Leggo il file dal server
-                        readFile(args[i], (void**)(&file_buffer), &n_to_read);
+                        fprintf(stderr, "Impossibile aprire il file (errore %d)\n", errno);
+                        free(file_buffer);
+                        continue;
+                    }
+                    // Leggo il file dal server
+                    if (readFile(args[i], (void**)(&file_buffer), &n_to_read) != OK)
+                    {
+                        fprintf(stderr, "Impossibile leggere il file (errore %d)\n", errno);
+                        free(file_buffer);
+                        continue;
+                    }
 
-                        // Controllo se devo scriverlo in una cartella
-                        if (config.read_dir != NULL)
+                    // Controllo se devo scriverlo in una cartella
+                    if (config.read_dir != NULL)
+                    {
+                        // Creo la cartella se non esiste
+                        if (create_dir_if_not_exists(config.read_dir) == 0)
                         {
-                            // Creo la cartella se non esiste
-                            if (create_dir_if_not_exists(config.read_dir) == 0)
-                            {
-                                chdir(config.read_dir);
-                                
-                                // Aggiungo 'expelled' al nome del file espulso
-                                strncpy(&write_path[1], args[i], MAX_PATH_LENGTH);
-                                replace_char(write_path, '/', '-');
-                                // Scrivo nella cartella
-                                FILE* file = fopen(write_path, "wb");
-                                printf("Path: %s\nContent:%s\n", write_path, file_buffer);
-                                if (fwrite(file_buffer, sizeof(char), n_to_read, file) <= 0) 
-                                {
-                                    fclose(file);
-                                    return WRITE_FILE_ERROR;
-                                }
-                                fclose(file);
-                            }
-                            else
-                                perror("Impossibile scrivere il file letto nella cartella");
-                        }
+                            int err;
 
-                        printf("Contenuto del file %s\n", args[i]);
-                        printf("%s\n\n", file_buffer);
-                        closeFile(args[i]);
+                            if (chdir(config.read_dir) != OK)
+                            {
+                                perror("Impossibile spostarsi nella directory per scrivere il file letto");
+                                free(file_buffer);
+                                continue;
+                            }
+                            
+                            // Aggiungo 'expelled' al nome del file espulso
+                            strncpy(&write_path[1], args[i], MAX_PATH_LENGTH);
+                            replace_char(write_path, '/', '-');
+                            // Scrivo nella cartella
+                            FILE* file = fopen(write_path, "wb");
+                            
+                            if (file == NULL)
+                            {
+                                perror("Impossibile aprire il file per scrivere il file letto");
+                                free(file_buffer);
+                                continue;
+                            }
+                            if (fwrite(file_buffer, sizeof(char), n_to_read, file) <= 0) 
+                            {
+                                fprintf(stderr, "Impossibile salvare il file letto.\n(%d).\n", errno);
+                                SYSCALL_EXIT("fclose", err, fclose(file), "Impossibile chiudere il file", "");
+                                free(file_buffer);
+                                continue;
+                            }
+                                
+                            SYSCALL_EXIT("fclose", err, fclose(file), "Impossibile chiudere il file", "");
+                        }
+                        else
+                        {
+                            perror("Impossibile verificare l'esistenza della cartella di scrittura");
+                            free(file_buffer);
+                            continue;
+                        }
+                    }
+
+                    if (closeFile(args[i]) != OK)
+                    {
+                        fprintf(stderr, "Impossibile chiudere il file (%d).\n", errno);
+                        free(file_buffer);
+                        continue;
                     }
 
                     free(file_buffer);
@@ -223,7 +282,8 @@ int execute_requests(ClientConfig config, List* requests)
                 // Argomento: numero di file da leggere dal server, se <0 li legge tutti
                 int to_read = string_to_int(args[0], FALSE);                
 
-                readNFiles(to_read, config.read_dir);
+                if (readNFiles(to_read, config.read_dir) != 0)
+                    fprintf(stderr, "Impossibile leggere i file.(%d).\n", errno);
                 free(curr_request->arguments);
                 break;
             case 'l':
@@ -279,6 +339,7 @@ int execute_requests(ClientConfig config, List* requests)
 
 int send_from_dir(const char* dirpath, int* n_files, const char* write_dir)
 {
+    errno = 0;
     //int must_print = client_configuration.print_op_data;
     // Se ho finito, ritorno
     if (n_files == 0)
@@ -296,6 +357,7 @@ int send_from_dir(const char* dirpath, int* n_files, const char* write_dir)
             if ((dir = opendir(dirpath)) == NULL) 
             {
                 fprintf(stderr, "Impossibile aprire la directory %s\n", dirpath);
+                errno = FILESYSTEM_ERROR;
                 return FILESYSTEM_ERROR;
             } 
             else 
@@ -317,6 +379,7 @@ int send_from_dir(const char* dirpath, int* n_files, const char* write_dir)
                         if ((dir_len + file_len + 2) > PATH_MAX) 
                         {
                             fprintf(stderr, "Path del file da spedire troppo lungo\n");
+                            errno = FILESYSTEM_ERROR;
                             return FILESYSTEM_ERROR;
                         }
                         
@@ -333,7 +396,7 @@ int send_from_dir(const char* dirpath, int* n_files, const char* write_dir)
                 // Posso chiudere la directory
                 closedir(dir);
 
-                return 0;
+                return OK;
             }
         }
         // Se invece è un file
@@ -350,22 +413,22 @@ int send_from_dir(const char* dirpath, int* n_files, const char* write_dir)
                 if (writeFile(full_path, write_dir) == 0)
                     (*n_files)--;
 
-                /*if (must_print) {
-                    printf("Tentativo di scrittura di %d bytes sul file %s. Esito: %d\n",
-                        op, );
-                }*/
                 closeFile(full_path);
             }
             
             return 0;
         }
         else
+        {
+            errno = NOT_A_FOLDER;
             // Errore
             return NOT_A_FOLDER;
+        }
     }
     else
     {
         fprintf(stderr, "Errore nell'esecuzione di stat sulla directory %s\n", dirpath);
+        errno = FILESYSTEM_ERROR;
         return FILESYSTEM_ERROR;
     }
 }
@@ -374,7 +437,7 @@ char** parse_request_arguments(char* args)
 {
     char** ret;
     int n_args = 1;
-    int i = 0; 
+    int i = 0;
 
     // Calcolo il numero di argomenti, ogni virgola è un argomento in più
     while (args[i] != '\0')
@@ -389,9 +452,8 @@ char** parse_request_arguments(char* args)
     ret = my_malloc(sizeof(char*) * n_args);
     
     i = 0;
-
     // Prendo la prima stringa
-    ret[0] = strtok(args, ",");
+    ret[i] = strtok(args, ",");
     i++;
 
     // Prendo le restanti
