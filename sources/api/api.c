@@ -199,7 +199,7 @@ int openFile(const char* pathname, int flags)
     to_send.timestamp = timestamp;
     to_send.op_code = OPENFILE;
     
-    SYSCALL_RETURN("writen", n_written, writen(socket_fd, &to_send, sizeof(to_send), 
+    SYSCALL_RETURN("writen", n_written, writen(socket_fd, &to_send, sizeof(to_send)), 
         "Impossibile inviare la richiesta di apertura", "");
     SYSCALL_RETURN("readn", n_read, readn(socket_fd, &reply, sizeof(reply)), 
         "Impossibile ricevere l'esito della richiesta di apertura", "");
@@ -313,7 +313,6 @@ int readFile(const char* pathname, void** buf, size_t* size)
     return OK;
 }
 
-
 int readNFiles(int n, const char* dirname)
 {
     // Timestamp
@@ -322,6 +321,7 @@ int readNFiles(int n, const char* dirname)
     int to_read;
     // Valore di ritorno
     int ret = 0;
+    int n_read, n_written;
 
     // Richiesta del client
     ClientRequest request;
@@ -333,17 +333,26 @@ int readNFiles(int n, const char* dirname)
     request.flags = n;
     request.op_code = PARTIALREAD;
     request.timestamp = timestamp;
-    writen(socket_fd, &request, sizeof(request));
 
+    // Invio richiesta
+    SYSCALL_RETURN("writen", n_written, writen(socket_fd, &request, sizeof(request)), 
+        "Errore nell'invio della richiesta di lettura di N files.\n", "");
     // Leggo quanti file devo leggere
-    ret = readn(socket_fd, &to_read, sizeof(to_read));
+    SYSCALL_RETURN("writen", n_read, readn(socket_fd, &to_read, sizeof(to_read)), 
+        "Errore nella ricezione del numero di file ritornati.\n", "");
 
-    if (ret <= 0)
-        return READ_FILE_ERROR;
+    if (to_read < 0)
+    {
+        fprintf(stderr, "Errore di lettura lato server (errore %d)\n", ret);
+        return ret;
+    }
     // Posso riciclare la funzione per leggere i file espulsi
-    if (to_read >= 0)
-        to_read = handle_expelled_files(to_read, dirname);
-    return ret;
+    to_read = handle_expelled_files(to_read, dirname);
+    
+    if (to_read < 0)
+        fprintf(stderr, "Errore di gestione dei file espulsi (errore %d)\n", to_read);
+
+    return to_read;
 }
 
 int appendToFile(const char* pathname, void* buf, size_t size, const char* dirname)
@@ -353,6 +362,7 @@ int appendToFile(const char* pathname, void* buf, size_t size, const char* dirna
     time_t timestamp;
     // Path del file
     char path[MAX_PATH_LENGTH];
+    int n_read, n_written;
 
     get_right_path(pathname, path, MAX_PATH_LENGTH);
     memset(&to_send, 0, sizeof(to_send));
@@ -367,21 +377,27 @@ int appendToFile(const char* pathname, void* buf, size_t size, const char* dirna
     to_send.timestamp = timestamp;
 
     // La invio
-    writen(socket_fd, &to_send, sizeof(to_send));
+    SYSCALL_RETURN("writen", n_written, writen(socket_fd, &to_send, sizeof(to_send)),
+        "Errore nell'invio della richiesta di append\n", "");
     // Ottengo il codice di errore
-    readn(socket_fd, &reply, sizeof(reply));
+    SYSCALL_RETURN("readn", n_read, readn(socket_fd, &reply, sizeof(reply)),
+        "Errore nella ricezione del risultato dell'append\n", "");
 
     if (reply < 0)
+    {
+        fprintf(stderr, "Errore lato server nell'append (codice %d)\n", reply);
         return reply;
+    }
 
     reply = handle_expelled_files(reply, dirname);
+    if (reply < 0)
+        fprintf(stderr, "Errore di gestione dei file espulsi (errore %d)\n", reply);
     // Lo ritorno
     return reply;
 }
 
 int closeFile(const char* pathname)
 {
-    printf("Chiamata\n");
     // Timestamp
     time_t timestamp;
     // Richiesta
@@ -390,6 +406,7 @@ int closeFile(const char* pathname)
     int reply = 0;
     // Path del file
     char path[MAX_PATH_LENGTH];
+    int n_read, n_written;
 
     get_right_path(pathname, path, MAX_PATH_LENGTH);
 
@@ -401,9 +418,12 @@ int closeFile(const char* pathname)
     memcpy(to_send.path, path, strlen(path));
 
     // La invio
-    write(socket_fd, &to_send, sizeof(to_send));
+    SYSCALL_RETURN("writen", n_written, writen(socket_fd, &to_send, sizeof(to_send)), 
+        "Errore nell'invio della richiesta di chiusura.\n", "");
     // Ricevo la risposta
-    read(socket_fd, &reply, sizeof(int));
+    SYSCALL_RETURN("writen", n_read, readn(socket_fd, &reply, sizeof(int)), 
+        "Errore nella ricezione dell'esito della chiusura.\n", "");
+
     return reply;
 }
 
