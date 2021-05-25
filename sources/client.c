@@ -146,6 +146,7 @@ int execute_requests(ClientConfig config, List* requests)
                     if ((err = openFile(args[i], (1 << O_CREATE))) != 0)
                     {
                         fprintf(stderr, "Impossibile scrivere il file %s, operazione annullata (errore %d).\n", args[i], errno);
+                        i++;
                         continue;
                     }
                     else
@@ -153,6 +154,7 @@ int execute_requests(ClientConfig config, List* requests)
                         if ((err = writeFile(args[i], config.expelled_dir)) != 0)
                         {
                             fprintf(stderr, "Impossibile scrivere il file (errore %d)\n", errno);
+                            i++;
                             continue;
                         }
                     }
@@ -160,6 +162,7 @@ int execute_requests(ClientConfig config, List* requests)
                     if (closeFile(args[i]) != OK)
                     {
                         fprintf(stderr, "Impossibile chiudere il file (errore %d)\n", errno);
+                        i++;
                         continue;
                     }
                     i++;
@@ -170,9 +173,10 @@ int execute_requests(ClientConfig config, List* requests)
                 // Il primo argomento è il nome del file a cui appendere, il secondo è ciò che voglio appendere
                 int err;
 
-                if ((err = openFile(args[0], 0)) != 0)
+                if ((err = openFile(args[0], 0)) != OK)
                 {
                     fprintf(stderr, "Impossibile aprire il file (errore %d)\n", errno);
+                    i++;
                     continue;
                 }
                 else
@@ -181,12 +185,14 @@ int execute_requests(ClientConfig config, List* requests)
                     if (err != OK)
                     {
                         fprintf(stderr, "Impossibile appendere al file (errore %d)\n", errno);
+                        i++;
                         continue;
                     }
                     
                     if (closeFile(args[0]) != OK)
                     {
                         fprintf(stderr, "Impossibile chiudere il file (errore %d)\n", errno);
+                        i++;
                         continue;
                     }
                 }
@@ -207,10 +213,11 @@ int execute_requests(ClientConfig config, List* requests)
                     write_path[0] = 'E';
                     getcwd(curr_path, MAX_PATH_LENGTH);
 
-                    if (openFile(args[i], 0) != 0)
+                    if (openFile(args[i], 0) != OK)
                     {
                         fprintf(stderr, "Impossibile aprire il file (errore %d)\n", errno);
                         free(file_buffer);
+                        i++;
                         continue;
                     }
                     // Leggo il file dal server
@@ -218,6 +225,16 @@ int execute_requests(ClientConfig config, List* requests)
                     {
                         fprintf(stderr, "Impossibile leggere il file (errore %d)\n", errno);
                         free(file_buffer);
+                        i++;
+                        continue;
+                    }
+
+                    // Chiudo il file
+                    if (closeFile(args[i]) != OK)
+                    {
+                        fprintf(stderr, "Impossibile chiudere il file (%d).\n", errno);
+                        free(file_buffer);
+                        i++;
                         continue;
                     }
 
@@ -233,6 +250,7 @@ int execute_requests(ClientConfig config, List* requests)
                             {
                                 perror("Impossibile spostarsi nella directory per scrivere il file letto");
                                 free(file_buffer);
+                                i++;
                                 continue;
                             }
                             
@@ -246,6 +264,7 @@ int execute_requests(ClientConfig config, List* requests)
                             {
                                 perror("Impossibile aprire il file per scrivere il file letto");
                                 free(file_buffer);
+                                i++;
                                 continue;
                             }
                             if (fwrite(file_buffer, sizeof(char), n_to_read, file) <= 0) 
@@ -253,6 +272,7 @@ int execute_requests(ClientConfig config, List* requests)
                                 fprintf(stderr, "Impossibile salvare il file letto.\n(%d).\n", errno);
                                 SYSCALL_EXIT("fclose", err, fclose(file), "Impossibile chiudere il file", "");
                                 free(file_buffer);
+                                i++;
                                 continue;
                             }
                                 
@@ -262,15 +282,9 @@ int execute_requests(ClientConfig config, List* requests)
                         {
                             perror("Impossibile verificare l'esistenza della cartella di scrittura");
                             free(file_buffer);
+                            i++;
                             continue;
                         }
-                    }
-
-                    if (closeFile(args[i]) != OK)
-                    {
-                        fprintf(stderr, "Impossibile chiudere il file (%d).\n", errno);
-                        free(file_buffer);
-                        continue;
                     }
 
                     free(file_buffer);

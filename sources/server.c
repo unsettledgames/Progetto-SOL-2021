@@ -60,9 +60,10 @@ int main(int argc, char** argv)
     SYSCALL_EXIT("sigaddset", err, sigaddset(&mask, SIGQUIT), "Errore in sigaddset", "");
     SYSCALL_EXIT("sigaddset", err, sigaddset(&mask, SIGHUP), "Errore in sigaddset", "");
 
+    // Applico la maschera appena definita
     SYSCALL_EXIT("pthread_sigmask", err, pthread_sigmask(SIG_SETMASK, &mask, &oldmask), 
         "Errore in pthread_sigmask", "");
-
+    // Thread di gestione dei segnali
     SYSCALL_EXIT("pthread_create", err, pthread_create(&sighandler_tid, NULL, &sighandler, NULL), 
         "Errore in pthread_create", "");
 
@@ -78,6 +79,7 @@ int main(int argc, char** argv)
     if (argc == 1)
     {
         clean_everything();
+        fprintf(stderr, "File di configurazione non passato\n");
         return CONFIG_FILE_ERROR;
     }
 
@@ -99,9 +101,12 @@ int main(int argc, char** argv)
         tids = my_malloc(sizeof(pthread_t) * config.n_workers);
 
         // Faccio partire il thread master, che accetta le connessioni
-        pthread_create(&connession_handler_tid, NULL, &connession_handler, NULL);
+        SYSCALL_EXIT("pthread_create", err, pthread_create(&connession_handler_tid, NULL, &connession_handler, NULL), 
+        "Errore in pthread_create dell'handler delle connessioni", "");
         // Faccio partire il dispatcher, che riceve le richieste e le aggiunge in coda
-        pthread_create(&dispatcher_tid, NULL, &dispatcher, NULL);
+        SYSCALL_EXIT("pthread_create", err, pthread_create(&dispatcher_tid, NULL, &dispatcher, NULL), 
+        "Errore in pthread_create del dispatcher", "");
+
         log_info("Inizializzato dispatcher delle richieste");
 
         // Faccio partire i thread workers
@@ -109,15 +114,18 @@ int main(int argc, char** argv)
         {
             log_info("Partito thread worker %d", i);
 
-            pthread_create(&tids[i], NULL, &worker, NULL);
+            SYSCALL_EXIT("pthread_create", err, pthread_create(&tids[i], NULL, &worker, NULL), 
+            "Errore in pthread_create del worker %d", i);
         }
 
-        pthread_join(sighandler_tid, NULL);
+        // Aspetto che il signal handler finisca
+        SYSCALL_EXIT("pthread_join", err, pthread_join(sighandler_tid, NULL), 
+            "Errore nella join del gestore dei segnali", "");
     }
     else
     {
-        log_info("Impossibile terminare la configurazione del server. Esco...");
-        perror("Impossibile terminare la configurazione del server.\n");
+        perror("Impossibile terminare la configurazione del server");
+        clean_everything();
         exit(CONFIG_FILE_ERROR);
     }
 
@@ -126,17 +134,16 @@ int main(int argc, char** argv)
 
 void* worker(void* args)
 {
+    int err;
     // Maschero i segnali
     sigset_t mask, oldmask;
-    sigemptyset(&mask);   
-    sigaddset(&mask, SIGINT); 
-    sigaddset(&mask, SIGQUIT);
-    sigaddset(&mask, SIGHUP);
+    SYSCALL_EXIT("sigemptyset", err, sigemptyset(&mask), "Errore in sigemptyset", "");
+    SYSCALL_EXIT("sigaddset", err, sigaddset(&mask, SIGINT), "Errore in sigaddset", "");
+    SYSCALL_EXIT("sigaddset", err, sigaddset(&mask, SIGQUIT), "Errore in sigaddset", "");
+    SYSCALL_EXIT("sigaddset", err, sigaddset(&mask, SIGHUP), "Errore in sigaddset", "");
 
-    if (pthread_sigmask(SIG_BLOCK, &mask,&oldmask) != 0) {
-        fprintf(stderr, "Impossibile impostare la maschera dei segnali");
-        exit(EXIT_FAILURE);
-    }
+    SYSCALL_EXIT("pthread_sigmask", err, pthread_sigmask(SIG_BLOCK, &mask, &oldmask), 
+        "Errore in pthread_sigmask", "");
 
     // Salvataggio della richiesta
     ClientRequest request;
@@ -155,9 +162,9 @@ void* worker(void* args)
         int file_size;
 
         // Mi metto in attesa sulla variabile condizionale
-        pthread_mutex_lock(&queue_mutex);
+        LOCK(&queue_mutex);
         while (requests.length <= 0 && !must_stop)
-            pthread_cond_wait(&queue_not_empty, &queue_mutex);
+            WAIT(&queue_not_empty, &queue_mutex);
         
         // Se sono arrivato fin qui, o è perché devo terminare
         if (must_stop)
@@ -172,7 +179,7 @@ void* worker(void* args)
         // Libero la memoria allocata
         free(to_free);
         // Sblocco la coda
-        pthread_mutex_unlock(&queue_mutex);
+        UNLOCK(&queue_mutex);
 
         // Ottengo il timestamp
         time(&timestamp);
@@ -182,25 +189,19 @@ void* worker(void* args)
             case OPENFILE:;
                 log_info("Tentativo di apertura del file %s", request.path);
                 // Verifico che il file non esista o non sia già aperto
-                pthread_mutex_lock(&files_mutex);
+                LOCK(&files_mutex);
                 if (hashmap_has_key(files, request.path) && !((request.flags >> O_CREATE) & 1))
                 {
                     // Ottengo il file che mi interessa
                     File* to_open = (File*)hashmap_get(files, request.path);
-                    pthread_mutex_unlock(&files_mutex);
+                    UNLOCK(&files_mutex);
 
-                    // Se è già stato aperto, lo segnalo
-                    if (to_open->is_open)
-                        to_send = ALREADY_OPENED;
-                    else
-                    {
-                        // Se non era aperto, lo apro
-                        pthread_mutex_lock(&to_open->lock);
-                        to_open->is_open = TRUE;
-                        pthread_mutex_unlock(&to_open->lock);
+                    // Lo apro
+                    LOCK(&to_open->lock);
+                    to_open->is_open = TRUE;
+                    UNLOCK(&to_open->lock);
 
-                        log_info("File aperto con successo.");
-                    }
+                    log_info("File aperto con successo.");
                 }
                 else if ((request.flags >> O_CREATE) & 1)
                 {
@@ -229,14 +230,14 @@ void* worker(void* args)
 
                     // Infine aggiungo il file alla tabella
                     hashmap_put(&files, to_open, file_key);
-                    pthread_mutex_unlock(&files_mutex);
+                    UNLOCK(&files_mutex);
 
                     log_info("File creato e aperto con successo");
                 }    
                 else
                 {
                     to_send = INCONSISTENT_FLAGS;            
-                    pthread_mutex_unlock(&files_mutex);
+                    UNLOCK(&files_mutex);
                 }
 
                 writen(request.client_descriptor, &to_send, sizeof(to_send));
@@ -247,15 +248,15 @@ void* worker(void* args)
                 ServerResponse response;
                 memset(&response, 0, sizeof(response));
 
-                pthread_mutex_lock(&files_mutex);
+                LOCK(&files_mutex);
                 if (hashmap_has_key(files, request.path))
                 {
                     // Ottengo il file
                     File* to_read = (File*)hashmap_get(files, request.path);
-                    pthread_mutex_unlock(&files_mutex);
+                    UNLOCK(&files_mutex);
 
                     // Se è aperto, leggo, altrimenti segnalo l'errore
-                    pthread_mutex_lock(&(to_read->lock));
+                    LOCK(&(to_read->lock));
                     to_read->last_used = timestamp;
                     if (to_read->is_open)
                     {
@@ -266,13 +267,13 @@ void* worker(void* args)
                     }
                     else
                         response.error_code = NOT_OPENED;
-                    pthread_mutex_unlock(&(to_read->lock));
+                    UNLOCK(&(to_read->lock));
                     
                 }
                 else
                 {
                     response.error_code = FILE_NOT_FOUND;
-                    pthread_mutex_unlock(&files_mutex);
+                    UNLOCK(&files_mutex);
                 }
 
                 if (response.error_code == OK)
@@ -285,7 +286,7 @@ void* worker(void* args)
                 int finished = FALSE;
                 int sent = 0;
                 
-                pthread_mutex_lock(&files_mutex);
+                LOCK(&files_mutex);
 
                 // Calcolo quanti file devo effettivamente spedire
                 if (request.flags < 0 || files.curr_size < request.flags)
@@ -329,13 +330,13 @@ void* worker(void* args)
                     }
                 }
                 
-                pthread_mutex_unlock(&files_mutex);
+                UNLOCK(&files_mutex);
                 break;
             case WRITEFILE:;
                 // File espulsi da rispedire al client
                 files_to_send = NULL;
                 // Prendo il file dalla tabella
-                pthread_mutex_lock(&files_mutex);
+                LOCK(&files_mutex);
                 // File da scrivere
                 File* to_write = NULL;
                 // Numero di file nell'hashmap
@@ -352,9 +353,9 @@ void* worker(void* args)
                     file_size = server_compress(request.content, request.content);
                     // Dato che esiste, prendo il file corrispondente al path
                     to_write = (File*)hashmap_get(files, request.path);
-                    pthread_mutex_unlock(&files_mutex);
+                    UNLOCK(&files_mutex);
 
-                    pthread_mutex_lock(&(to_write->lock));
+                    LOCK(&(to_write->lock));
                     // Se il file è aperto e l'ultima operazione era una open da parte dello stesso client,
                     // allora posso scrivere
                     if (to_write->is_open)
@@ -365,12 +366,12 @@ void* worker(void* args)
                             if (file_size < config.tot_space)
                             {
                                 // Aggiorno lo spazio allocato dai file
-                                pthread_mutex_lock(&allocated_space_mutex);
+                                LOCK(&allocated_space_mutex);
                                 allocated_space += file_size;
 
                                 // Se non posso tenere altri file in cache, ne rimuovo finché non ho 
                                 // spazio disponibile
-                                pthread_mutex_lock(&files_mutex);
+                                LOCK(&files_mutex);
 
                                 // Nel peggiore dei casi, i file da spedire indietro sono tutti (TODO: usare una lista)
                                 files_to_send = my_malloc(sizeof(File) * files.curr_size);
@@ -404,16 +405,16 @@ void* worker(void* args)
                                     else
                                         to_send = LRU_FAILURE;
                                 }
-                                pthread_mutex_unlock(&files_mutex);
-                                pthread_mutex_unlock(&allocated_space_mutex);
+                                UNLOCK(&files_mutex);
+                                UNLOCK(&allocated_space_mutex);
                             }
                             else
                                 to_send = FILE_TOO_BIG;
                             
-                            pthread_mutex_lock(&files_mutex);
+                            LOCK(&files_mutex);
                             if (files.curr_size == config.max_files)
                                 to_send = FILE_AMOUNT_LIMIT;
-                            pthread_mutex_unlock(&files_mutex);
+                            UNLOCK(&files_mutex);
                         }
                         else
                             to_send = INVALID_LAST_OPERATION;
@@ -421,13 +422,13 @@ void* worker(void* args)
                     else
                         to_send = NOT_OPENED;
 
-                    pthread_mutex_unlock(&(to_write->lock));
+                    UNLOCK(&(to_write->lock));
                 }
                 // Se il file non esiste nel server, lo segnalo
                 else
                 {
                     to_send = FILE_NOT_FOUND;
-                    pthread_mutex_unlock(&files_mutex);
+                    UNLOCK(&files_mutex);
                 }
 
                 // Invio to_send al client
@@ -469,7 +470,7 @@ void* worker(void* args)
             case APPENDTOFILE:;
                 log_info("Tentativo di append al file %s", request.path);
                 // Prendo il file a cui appendere i dati
-                pthread_mutex_lock(&files_mutex);
+                LOCK(&files_mutex);
                 File* file = (File*)hashmap_get(files, request.path);
                 // Array dei file da espellere
                 files_to_send = my_malloc(sizeof(File) * files.curr_size);
@@ -478,7 +479,7 @@ void* worker(void* args)
 
                 if (file != NULL)
                 {
-                    pthread_mutex_lock(&allocated_space_mutex);
+                    LOCK(&allocated_space_mutex);
                     // Aggiungo la lunghezza dei dati da concatenare al file
                     allocated_space += strlen(request.content);
 
@@ -515,12 +516,12 @@ void* worker(void* args)
                                 free(expelled_path);
                         }
                     }
-                    pthread_mutex_unlock(&allocated_space_mutex);
+                    UNLOCK(&allocated_space_mutex);
                 }
                 else
                     to_send = FILE_NOT_FOUND;
                 
-                pthread_mutex_unlock(&files_mutex);
+                UNLOCK(&files_mutex);
 
                 // Invio il risultato dell'operazione al client
                 writen(request.client_descriptor, &to_send, sizeof(to_send));
@@ -556,30 +557,32 @@ void* worker(void* args)
                 break;
             case CLOSEFILE:
                 log_info("Tentativo di chiusura del file %s", request.path);
-                pthread_mutex_lock(&files_mutex);
+                LOCK(&files_mutex);
                 
                 if (hashmap_has_key(files, request.path))
                 {
                     File* to_close = (File*)hashmap_get(files, request.path);
-                    pthread_mutex_unlock(&files_mutex);
+                    UNLOCK(&files_mutex);
 
-                    pthread_mutex_lock(&(to_close->lock));
+                    LOCK(&(to_close->lock));
                     // Se è aperto lo chiudo
                     if (to_close->is_open)
                     {
                         to_close->is_open = FALSE;
                         to_close->last_op = CLOSEFILE;
+
+                        log_info("Chiusura del file avvenuta con successo");
                     }
                     // Altrimenti segnalo quello che stavo cercando di fare
                     else
                         to_send = ALREADY_CLOSED;
                         
-                    pthread_mutex_unlock(&(to_close->lock));
+                    UNLOCK(&(to_close->lock));
                 }
                 else
                 {
                     to_send = FILE_NOT_FOUND;
-                    pthread_mutex_unlock(&files_mutex);
+                    UNLOCK(&files_mutex);
                 }
 
                 // Invio la risposta
@@ -592,14 +595,14 @@ void* worker(void* args)
                 sprintf(desc_string, "%d", request.client_descriptor);
 
                 // Rimuovo il descrittore dal set
-                pthread_mutex_lock(&desc_set_lock);
+                LOCK(&desc_set_lock);
                 FD_CLR(request.client_descriptor, &desc_set);
-                pthread_mutex_unlock(&desc_set_lock);
+                UNLOCK(&desc_set_lock);
 
                 // Rimuovo il descrittore dalla lista dei descrittori attivi
-                pthread_mutex_lock(&client_fds_lock);
+                LOCK(&client_fds_lock);
                 list_remove_by_key(&client_fds, desc_string);
-                pthread_mutex_unlock(&client_fds_lock);
+                UNLOCK(&client_fds_lock);
                 
                 writen(request.client_descriptor, &to_send, sizeof(to_send));
                 break;
@@ -609,13 +612,13 @@ void* worker(void* args)
                 sprintf(to_remove, "%d", request.client_descriptor);
                 fprintf(stderr, "Codice richiesta %d non supportato dal server\n", request.op_code);
                 // Chiudo la connessione con quel client
-                pthread_mutex_lock(&client_fds_lock);
+                LOCK(&client_fds_lock);
                 list_remove_by_key(&client_fds, to_remove);
-                pthread_mutex_unlock(&client_fds_lock);
+                UNLOCK(&client_fds_lock);
 
-                pthread_mutex_lock(&desc_set_lock);
+                LOCK(&desc_set_lock);
                 FD_CLR(request.client_descriptor, &desc_set);
-                pthread_mutex_unlock(&desc_set_lock);
+                UNLOCK(&desc_set_lock);
                 break;
         }
 
@@ -624,9 +627,9 @@ void* worker(void* args)
         // Resetto il valore di ritorno
         to_send = 0;
         // Una volta esaudita la richiesta, posso ricominciare ad ascoltare quel client
-        pthread_mutex_lock(&desc_set_lock);
+        LOCK(&desc_set_lock);
         FD_SET(request.client_descriptor, &desc_set);
-        pthread_mutex_unlock(&desc_set_lock);
+        UNLOCK(&desc_set_lock);
     }
 
     pthread_exit(NULL);
@@ -653,21 +656,21 @@ void* dispatcher(void* args)
     {
         FD_ZERO(&read_set);
         // Salvo il numero massimo dei fd
-        pthread_mutex_lock(&max_fd_lock);
+        LOCK(&max_fd_lock);
         int loc_max_fd = max_fd;
-        pthread_mutex_unlock(&max_fd_lock);
+        UNLOCK(&max_fd_lock);
 
         if (loc_max_fd > 0)
         {
             // Copio il set totale
-            pthread_mutex_lock(&desc_set_lock);
+            LOCK(&desc_set_lock);
             read_set = desc_set;
-            pthread_mutex_unlock(&desc_set_lock);
+            UNLOCK(&desc_set_lock);
 
             // Calcolo il numero attuale di connessioni attive
-            pthread_mutex_lock(&client_fds_lock);
+            LOCK(&client_fds_lock);
             int list_len = client_fds.length;
-            pthread_mutex_unlock(&client_fds_lock);
+            UNLOCK(&client_fds_lock);
             
             // Uso la select per gestire le connessioni che necessitano di attenzione
             if (list_len != 0)
@@ -685,17 +688,17 @@ void* dispatcher(void* args)
                 // Ciclo nei set e verifico quali sono pronti
                 for (int i=0; i<list_len; i++)
                 {
-                    pthread_mutex_lock(&client_fds_lock);
+                    LOCK(&client_fds_lock);
                     // Ottengo il fd corrente
                     void* res = list_get(client_fds, i);
                     if (res == NULL)
                     {
-                        pthread_mutex_unlock(&client_fds_lock);
+                        UNLOCK(&client_fds_lock);
                         continue;
                     }
                         
                     int curr_fd = *((int*)res);
-                    pthread_mutex_unlock(&client_fds_lock);          
+                    UNLOCK(&client_fds_lock);          
 
                     // Controllo che sia settato e che abbia qualcosa da leggere
                     if (curr_fd <= loc_max_fd && FD_ISSET(curr_fd, &read_set))
@@ -713,16 +716,16 @@ void* dispatcher(void* args)
                             // Aggiungo il file descriptor del client alla richiesta ricevuta
                             request->client_descriptor = curr_fd;
                             // Impedisco che la select possa leggere duplicati nelle richieste
-                            pthread_mutex_lock(&desc_set_lock);
+                            LOCK(&desc_set_lock);
                             FD_CLR(curr_fd, &desc_set);
-                            pthread_mutex_unlock(&desc_set_lock);
+                            UNLOCK(&desc_set_lock);
                             // La aggiungo alla coda delle richieste
-                            pthread_mutex_lock(&queue_mutex);
+                            LOCK(&queue_mutex);
                             list_enqueue(&requests, request, NULL);
 
                             // Segnalo che la coda delle richieste ha un elemento da elaborare
                             pthread_cond_signal(&queue_not_empty);
-                            pthread_mutex_unlock(&queue_mutex);
+                            UNLOCK(&queue_mutex);
                         }
                     }
                 }
@@ -773,20 +776,20 @@ void* connession_handler(void* args)
 
             // Aggiungo l'fd alla lista, accedo in mutua esclusione perché potrei ricevere una 
             // richiesta di disconnessione che modifica la lista
-            pthread_mutex_lock(&client_fds_lock);
+            LOCK(&client_fds_lock);
             list_push(&client_fds, to_add, key);
-            pthread_mutex_unlock(&client_fds_lock);
+            UNLOCK(&client_fds_lock);
 
             // Aggiungo il descrittore al read set
-            pthread_mutex_lock(&desc_set_lock);
+            LOCK(&desc_set_lock);
             FD_SET(client_fd, &desc_set);
-            pthread_mutex_unlock(&desc_set_lock);
+            UNLOCK(&desc_set_lock);
 
             // Aggiorno il massimo fd se necessario
-            pthread_mutex_lock(&max_fd_lock);
+            LOCK(&max_fd_lock);
             if (max_fd < client_fd)
                 max_fd = client_fd;
-            pthread_mutex_unlock(&max_fd_lock);
+            UNLOCK(&max_fd_lock);
         }
     }
     
@@ -826,23 +829,36 @@ int create_log()
     }
     else
     {
-        closedir(logs);
+        int err = 0;
+        SYSCALL_EXIT("closedir", err, closedir(logs), "Impossibile chiudere la directory dei log\n", "");
         sprintf(log_path, "%s/%s", config.log_path, log_name);
     }
 
     // Creo e apro un file chiamato come la data attuale
     log_file = fopen(log_path, "w");
+    // Se log_file non è NULL, sposto stdout sul log_file così nel caso sia stato impossibile avere un file
+    // di log, le informazioni vengono almeno stampate a schermo sul server
+    if (log_file != NULL)
+    {
+        int log_fd;
+        int err;
+
+        SYSCALL_RETURN("fileno", log_fd, fileno(log_file), "Impossibile ricavare l'fd del file di log\n", "");
+        SYSCALL_RETURN("dup2", err, dup2(log_fd, 1), "Impossibile redirigere stdout sul file di log\n", "");
+    }
 
     return 0;
 }
 
 int initialize_socket()
 {
+    int err = 0;
     // Pulisco eventuali socket precedenti
     cleanup(config.socket_name);
 
     // Creo il socket
-    int socket_desc = socket(AF_UNIX, SOCK_STREAM, 0);
+    int socket_desc;
+    SYSCALL_EXIT("socket", socket_desc, socket(AF_UNIX, SOCK_STREAM, 0), "Impossibile creare il socket.\n", "");
     // Indirizzo del socket
     struct sockaddr_un socket_addr;
 
@@ -851,15 +867,12 @@ int initialize_socket()
     strncpy(socket_addr.sun_path, config.socket_name, strlen(config.socket_name) + 1);
     socket_addr.sun_family = AF_UNIX;
 
-    // Binding del socket
-    if (bind(socket_desc, (struct sockaddr*) &socket_addr, (socklen_t)sizeof(socket_addr)) != 0)
-    {
-        perror("Impossibile collegare il socket all'indirizzo");
-        exit(EXIT_FAILURE);
-    }
-
+    // Binding dell'indirizzo al socket
+    SYSCALL_EXIT("bind", err, bind(socket_desc, (struct sockaddr*) &socket_addr, (socklen_t)sizeof(socket_addr)), 
+        "Impossibile terminare il binding del socket.\n", "");
     // Mi metto in ascolto
-    listen(socket_desc, MAX_CONNECTION_QUEUE_SIZE);
+    SYSCALL_EXIT("listen", err, listen(socket_desc, MAX_CONNECTION_QUEUE_SIZE), 
+        "Impossibile invocare la listen sul socket.\n", "");
 
     // Ritorno l'fd del server
     return socket_desc;
@@ -1031,7 +1044,6 @@ void* sighandler(void* param)
     int signal = -1;
     sigwait(&mask, &signal);
 
-    printf("Chiamato %d\n %d\n", signal, must_stop);
     if (!must_stop)
     {
         // Segnalo che ho terminato
@@ -1051,7 +1063,6 @@ void* sighandler(void* param)
             }
             // Coda richieste
             list_clean(requests, NULL);
-            printf("richieste puliti\n");
 
             for (int i=0; i<config.n_workers; i++)
             {
@@ -1075,22 +1086,17 @@ void* sighandler(void* param)
 
             // Pulisco tutte le strutture dati
             fclose(log_file);
-            printf("log chiuso\n");
             // Lista dei client
             list_clean(client_fds, NULL);
-            printf("client puliti\n");
             // Tabella dei file
             hashmap_clean(files, NULL);
-            printf("file puliti\n");
             // Tids
             free(tids);
-            printf("tids puliti\n");
             // Elimino il socket
             unlink(config.socket_name);
 
             // Segnalo che ho terminato
             must_stop = TRUE;
-            printf("Esco\n");
             // Esco      
             pthread_exit(NULL);
         }
@@ -1107,23 +1113,17 @@ void clean_everything()
         close(*((int*)curr->data));
         curr = curr->next;
     }
-    printf("Connessioni chiuse\n");
     // Coda richieste
     list_clean(requests, NULL);
-    printf("richieste puliti\n");
     // Pulisco tutte le strutture dati
     if (log_file != NULL)
         fclose(log_file);
-    printf("log chiuso\n");
     // Lista dei client
     list_clean(client_fds, NULL);
-    printf("client puliti\n");
     // Tabella dei file
     hashmap_clean(files, NULL);
-    printf("file puliti\n");
     // Tids
     free(tids);
-    printf("tids puliti\n");
     // Elimino il socket
     unlink(config.socket_name);
     // Esco dall'handler
@@ -1148,15 +1148,15 @@ void log_info(const char* fmt, ...)
     time(&raw_time);
     time_info = localtime(&raw_time);
     
-    pthread_mutex_lock(&log_mutex);
+    LOCK(&log_mutex);
 
     // Converto il timestamp attuale in formato leggibile 
     strftime(str_time, MAX_TIME_LENGTH, "%H:%M:%S", time_info);
     // Scrivo nel file di log
-    fprintf(log_file, "%s | -> %s\n", str_time, buf);
-    fflush(log_file);
+    printf("%s | -> %s\n", str_time, buf);
+    fflush(stdout);
 
-    pthread_mutex_unlock(&log_mutex);
+    UNLOCK(&log_mutex);
 }
 
 int server_compress(char* data, char* buffer)
