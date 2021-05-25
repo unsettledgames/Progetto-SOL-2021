@@ -349,7 +349,7 @@ int readNFiles(int n, const char* dirname)
     SYSCALL_RETURN("writen", n_written, writen(socket_fd, &request, sizeof(request)), 
         "Errore nell'invio della richiesta di lettura di N files.\n", "");
     // Leggo quanti file devo leggere
-    SYSCALL_RETURN("writen", n_read, readn(socket_fd, &to_read, sizeof(to_read)), 
+    SYSCALL_RETURN("readn", n_read, readn(socket_fd, &to_read, sizeof(to_read)), 
         "Errore nella ricezione del numero di file ritornati.\n", "");
 
     if (to_read < 0)

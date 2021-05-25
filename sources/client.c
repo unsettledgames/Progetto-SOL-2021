@@ -305,7 +305,6 @@ int execute_requests(ClientConfig config, List* requests)
 
                 if (readNFiles(to_read, config.read_dir) != 0)
                     fprintf(stderr, "Impossibile leggere i file.(%d).\n", errno);
-                free(curr_request->arguments);
                 break;
             case 'l':
                 // Ogni file su cui abilitare la lock è una stringa nell'array di argomenti
@@ -701,7 +700,7 @@ int validate_input(Hashmap config, List requests)
     // -d va usata con -R o -r
     if (hashmap_has_key(config, "d"))
     {
-        if (!(list_contains_string(requests, "r") || list_contains_string(requests, "R")))
+        if (!(list_contains_string(requests, "r") >= 0 || list_contains_string(requests, "R") >= 0))
         {
             fprintf(stderr, "L'opzione -d non puo' essere usata senza -r o -R.\n");
             errno = INCONSISTENT_INPUT_ERROR;

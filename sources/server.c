@@ -298,7 +298,7 @@ void* worker(void* args)
                     log_info("Tentativo di leggere %d file", to_send);
 
                 // Indico al client quanti file sto per ritornare
-                SERVER_OP(writen(request.client_descriptor, &response, sizeof(response)), sec_close_connection(request.client_descriptor));
+                SERVER_OP(writen(request.client_descriptor, &to_send, sizeof(to_send)), sec_close_connection(request.client_descriptor));
 
                 // Spedisco i file
                 for (int i=0; i<files.size && !finished; i++)
@@ -320,6 +320,7 @@ void* worker(void* args)
                             server_decompress(response.content, response.content, curr_file->content_size);
                         }
 
+                        printf("Invio a %d\n", request.client_descriptor);
                         // Invio la risposta
                         SERVER_OP(writen(request.client_descriptor, &response, sizeof(response)), sec_close_connection(request.client_descriptor));
                         log_info("File letto : %s, dimensione contenuto: %ld", response.path, strlen(response.content));
@@ -394,7 +395,8 @@ void* worker(void* args)
 
                                         // Aggiorno lo spazio e rimuovo il file
                                         allocated_space -= LRUed->content_size;
-                                        hashmap_remove(&files, to_remove);
+                                        if (hashmap_remove(&files, to_remove) != OK)
+                                            perror("Impossibile rimuovere il file");
                                         
                                         to_send++;
                                         n_files--;
@@ -504,7 +506,8 @@ void* worker(void* args)
                                 memcpy(&(files_to_send[to_send]), to_remove, sizeof(File));
 
                                 // Rimuovo il file dal sistema
-                                hashmap_remove(&files, expelled_path);
+                                if (hashmap_remove(&files, expelled_path) != OK)
+                                    perror("Impossibile rimuovere il file");
                                 // Ho dello spazio in meno
                                 allocated_space -= files_to_send[to_send].content_size;
                                 // Ho un file da spedire al client in più
@@ -602,6 +605,8 @@ void* worker(void* args)
                 // Rimuovo il descrittore dalla lista dei descrittori attivi
                 LOCK(&client_fds_lock);
                 list_remove_by_key(&client_fds, desc_string);
+                if (errno != OK)
+                    perror("Fallita chiusura della connessione");
                 UNLOCK(&client_fds_lock);
                 
                 SERVER_OP(writen(request.client_descriptor, &to_send, sizeof(to_send)), sec_close_connection(request.client_descriptor));
@@ -635,6 +640,8 @@ void sec_close_connection(int fd)
 
     LOCK(&client_fds_lock);
     list_remove_by_key(&client_fds, to_remove);
+    if (errno != OK)
+        perror("Fallita chiusura della connessione");
     UNLOCK(&client_fds_lock);
 
     LOCK(&desc_set_lock);
