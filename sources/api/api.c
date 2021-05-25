@@ -246,9 +246,10 @@ int writeFile(const char* pathname, const char* dirname)
     n_read = fread(write_buffer, sizeof(char), MAX_FILE_SIZE, to_read);
     if (n_read < 0) {
         fprintf(stderr, "Lettura del file da inviare fallita (errore %d)\n", errno);
-        SYSCALL_EXIT("fclose", err, fclose(file), "Impossibile chiudere il file", "");
+        SYSCALL_EXIT("fclose", ret, fclose(to_read), "Impossibile chiudere il file", "");
         return errno;
     }
+    SYSCALL_EXIT("fclose", ret, fclose(to_read), "Impossibile chiudere il file", "");
 
     // Creo una richiesta
     ClientRequest to_send;

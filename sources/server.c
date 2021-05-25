@@ -52,19 +52,19 @@ ServerConfig config;
 
 int main(int argc, char** argv)
 {
+    int err;
     // Maschero i segnali
     sigset_t oldmask;
-    sigemptyset(&mask);   
-    sigaddset(&mask, SIGINT); 
-    sigaddset(&mask, SIGQUIT);
-    sigaddset(&mask, SIGHUP);
+    SYSCALL_EXIT("sigemptyset", err, sigemptyset(&mask), "Errore in sigemptyset", "");
+    SYSCALL_EXIT("sigaddset", err, sigaddset(&mask, SIGINT), "Errore in sigaddset", "");
+    SYSCALL_EXIT("sigaddset", err, sigaddset(&mask, SIGQUIT), "Errore in sigaddset", "");
+    SYSCALL_EXIT("sigaddset", err, sigaddset(&mask, SIGHUP), "Errore in sigaddset", "");
 
-    if (pthread_sigmask(SIG_SETMASK, &mask, &oldmask) != 0) {
-        fprintf(stderr, "Impossibile impostare la maschera dei segnali");
-        return EXIT_FAILURE;
-    }
+    SYSCALL_EXIT("pthread_sigmask", err, pthread_sigmask(SIG_SETMASK, &mask, &oldmask), 
+        "Errore in pthread_sigmask", "");
 
-    pthread_create(&sighandler_tid, NULL, &sighandler, NULL);
+    SYSCALL_EXIT("pthread_create", err, pthread_create(&sighandler_tid, NULL, &sighandler, NULL), 
+        "Errore in pthread_create", "");
 
     // Inizializzazione delle strutture dati necessarie
     list_initialize(&requests, print_request_node);

@@ -1,7 +1,7 @@
 SHELL := /bin/bash
 
 # Phony targets dei test
-.PHONY : clean test1 test2 test2
+.PHONY : all client server clean test1 test2 test3
 
 # Opzioni di compilazione
 CC = gcc
