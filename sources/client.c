@@ -142,9 +142,13 @@ int execute_requests(ClientConfig config, List* requests)
                 while (args[i] != NULL)
                 {
                     int err;
+                    if (must_print)
+                        printf("Provata scrittura del file %s", args[i]);
 
                     if ((err = openFile(args[i], (1 << O_CREATE))) != 0)
                     {
+                        if (must_print)
+                            printf(", apertura fallita\n");
                         fprintf(stderr, "Impossibile scrivere il file %s, operazione annullata (errore %d).\n", args[i], errno);
                         i++;
                         continue;
@@ -153,14 +157,20 @@ int execute_requests(ClientConfig config, List* requests)
                     {
                         if ((err = writeFile(args[i], config.expelled_dir)) != 0)
                         {
+                            if (must_print)
+                                printf (", fallita\n");
                             fprintf(stderr, "Impossibile scrivere il file (errore %d)\n", errno);
                             i++;
                             continue;
                         }
+                        else if (must_print)
+                            printf(", avvenuta con successo (scritti %d bytes)\n", get_file_size(args[i], MAX_FILE_SIZE));
                     }
 
                     if (closeFile(args[i]) != OK)
                     {
+                        if (must_print)
+                            printf(", avvenuta con successo, chiusura fallita\n");
                         fprintf(stderr, "Impossibile chiudere il file (errore %d)\n", errno);
                         i++;
                         continue;
@@ -173,8 +183,14 @@ int execute_requests(ClientConfig config, List* requests)
                 // Il primo argomento è il nome del file a cui appendere, il secondo è ciò che voglio appendere
                 int err;
 
+                if (must_print)
+                    printf("Provata append al file %s", args[0]);
+
                 if ((err = openFile(args[0], 0)) != OK)
                 {
+                    if (must_print)
+                        printf(", apertura fallita\n");
+
                     fprintf(stderr, "Impossibile aprire il file (errore %d)\n", errno);
                     i++;
                     continue;
@@ -184,13 +200,20 @@ int execute_requests(ClientConfig config, List* requests)
                     err = appendToFile(args[0], args[1], strlen(args[1]), config.expelled_dir);
                     if (err != OK)
                     {
+                        if (must_print)
+                            printf(", fallita\n");
                         fprintf(stderr, "Impossibile appendere al file (errore %d)\n", errno);
                         i++;
                         continue;
                     }
+
+                    if (must_print)
+                        printf(", avvenuta con successo (scritti %ld) bytes\n", strlen(args[1]));
                     
                     if (closeFile(args[0]) != OK)
                     {
+                        if (must_print)
+                            printf("(chiusura fallita)\n");
                         fprintf(stderr, "Impossibile chiudere il file (errore %d)\n", errno);
                         i++;
                         continue;
@@ -204,6 +227,8 @@ int execute_requests(ClientConfig config, List* requests)
 
                 while (args[i] != NULL)
                 {
+                    if (must_print)
+                        printf("Provata lettura,");
                     char write_path[MAX_PATH_LENGTH * 2];
                     char curr_path[MAX_PATH_LENGTH];
 
@@ -218,20 +243,30 @@ int execute_requests(ClientConfig config, List* requests)
                         fprintf(stderr, "Impossibile aprire il file (errore %d)\n", errno);
                         free(file_buffer);
                         i++;
+
+                        if (must_print)
+                            printf("apertura fallita\n");
                         continue;
                     }
                     // Leggo il file dal server
                     if (readFile(args[i], (void**)(&file_buffer), &n_to_read) != OK)
                     {
+                        if (must_print)
+                            printf(", fallita\n");
                         fprintf(stderr, "Impossibile leggere il file (errore %d)\n", errno);
                         free(file_buffer);
                         i++;
                         continue;
                     }
 
+                    if (must_print)
+                        printf("avvenuta con successo (letti %ld bytes)\n", n_to_read);
+
                     // Chiudo il file
                     if (closeFile(args[i]) != OK)
                     {
+                        if (must_print)
+                            printf("(chiusura fallita)\n");
                         fprintf(stderr, "Impossibile chiudere il file (%d).\n", errno);
                         free(file_buffer);
                         i++;
@@ -301,10 +336,18 @@ int execute_requests(ClientConfig config, List* requests)
                 break;
             case 'R':;
                 // Argomento: numero di file da leggere dal server, se <0 li legge tutti
-                int to_read = string_to_int(args[0], FALSE);                
+                int to_read = string_to_int(args[0], FALSE);        
+                if (must_print)
+                    printf("Provata lettura di %d files", to_read);        
 
                 if (readNFiles(to_read, config.read_dir) != 0)
+                {
+                    if (must_print)
+                        printf(", fallita\n", to_read);        
                     fprintf(stderr, "Impossibile leggere i file.(%d).\n", errno);
+                }
+                else
+                    printf(", avvenuta con successo.\n");
                 break;
             case 'l':
                 // Ogni file su cui abilitare la lock è una stringa nell'array di argomenti
@@ -514,9 +557,7 @@ ClientConfig initialize_client(Hashmap config)
     }
 
     if (hashmap_has_key(config, "f"))
-    {
         ret.socket_name = (char*)hashmap_get(config, "f");
-    }
     else
     {
         fprintf(stderr, "Specificare il nome del socket a cui collegarsi tramite l'opzione -f name.\n");
@@ -526,9 +567,7 @@ ClientConfig initialize_client(Hashmap config)
     }
 
     if (hashmap_has_key(config, "D"))
-    {
         ret.expelled_dir = (char*)hashmap_get(config, "D");
-    }
 
     if (hashmap_has_key(config, "d"))
     {
@@ -537,14 +576,10 @@ ClientConfig initialize_client(Hashmap config)
     }
 
     if (hashmap_has_key(config, "t"))
-    {
         ret.request_rate = atol((char*)hashmap_get(config, "t"));
-    }
 
     if (hashmap_has_key(config, "p"))
-    {
         ret.print_op_data = atol((char*)hashmap_get(config, "p"));
-    }
 
     return ret;
 }

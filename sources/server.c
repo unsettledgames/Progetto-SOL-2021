@@ -319,8 +319,7 @@ void* worker(void* args)
                             // Decomprimo il contenuto
                             server_decompress(response.content, response.content, curr_file->content_size);
                         }
-
-                        printf("Invio a %d\n", request.client_descriptor);
+                        
                         // Invio la risposta
                         SERVER_OP(writen(request.client_descriptor, &response, sizeof(response)), sec_close_connection(request.client_descriptor));
                         log_info("File letto : %s, dimensione contenuto: %ld", response.path, strlen(response.content));
@@ -1012,21 +1011,17 @@ char* get_LRU(char* current_path)
     {
         for (int j=0; j<files.lists[i].length; j++)
         {
-            if (files.lists[i].length > 0)
-            {
-                File* curr_file = (File*)list_get(files.lists[i], j);
+            File* curr_file = (File*)list_get(files.lists[i], j);
 
-                // Se il file è stato modificato, è stato usato meno recentemente del file corrente e 
-                // non è il file che devo inserire
-                if (curr_file->modified && curr_file->last_used <= timestamp && 
-                    strcmp(curr_file->path, current_path) != 0)
-                {
-                    // Allora potrebbe essere un possibile file da rimuovere secondo la LRU
-                    timestamp = curr_file->last_used;
-                    strncpy(to_ret, curr_file->path, MAX_PATH_LENGTH);
-                }
+            // Se il file è stato modificato, è stato usato meno recentemente del file corrente e 
+            // non è il file che devo inserire
+            if (curr_file->modified && curr_file->last_used <= timestamp && 
+                strcmp(curr_file->path, current_path) != 0)
+            {
+                // Allora potrebbe essere un possibile file da rimuovere secondo la LRU
+                timestamp = curr_file->last_used;
+                strncpy(to_ret, curr_file->path, MAX_PATH_LENGTH);
             }
-            
         }
     }
 

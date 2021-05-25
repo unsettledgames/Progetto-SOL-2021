@@ -277,7 +277,6 @@ void* list_pop(List* list)
 
 int list_push(List* list, void* data, const char* key)
 {
-    errno = 0;
     // Altrimenti creo un nuovo nodo con i dati
     Node* to_add = create_node(data, key);
     // E lo imposto come nuova testa della lista

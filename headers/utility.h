@@ -117,5 +117,6 @@ static inline void print_error(const char * str, ...)
     free(p);
 }
 
+int get_file_size(char* path, int max_size);
 
 #endif

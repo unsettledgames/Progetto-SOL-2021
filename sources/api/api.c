@@ -307,7 +307,7 @@ int readFile(const char* pathname, void** buf, size_t* size)
     SYSCALL_RETURN("writen", n_written, writen(socket_fd, &to_send, sizeof(to_send)),
         "Errore nell'invio della richiesta di apertura del file.\n", "");
     // Ricevo la risposta
-    SYSCALL_RETURN("writen", n_read, readn(socket_fd, &to_receive, sizeof(to_receive)),
+    SYSCALL_RETURN("writen", *size, readn(socket_fd, &to_receive, sizeof(to_receive)),
         "Errore nell'invio della richiesta di apertura del file.\n", "");
 
     if (to_receive.error_code == OK)
