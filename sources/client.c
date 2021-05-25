@@ -241,6 +241,10 @@ int execute_requests(ClientConfig config, List* requests)
                     // Controllo se devo scriverlo in una cartella
                     if (config.read_dir != NULL)
                     {
+                        // Salvo la cwd
+                        char curr_path[MAX_PATH_LENGTH];
+                        getcwd(curr_path, MAX_PATH_LENGTH);
+
                         // Creo la cartella se non esiste
                         if (create_dir_if_not_exists(config.read_dir) == 0)
                         {
@@ -265,6 +269,7 @@ int execute_requests(ClientConfig config, List* requests)
                                 perror("Impossibile aprire il file per scrivere il file letto");
                                 free(file_buffer);
                                 i++;
+                                chdir(config.read_dir);
                                 continue;
                             }
                             if (fwrite(file_buffer, sizeof(char), n_to_read, file) <= 0) 
@@ -273,10 +278,12 @@ int execute_requests(ClientConfig config, List* requests)
                                 SYSCALL_EXIT("fclose", err, fclose(file), "Impossibile chiudere il file", "");
                                 free(file_buffer);
                                 i++;
+                                chdir(config.read_dir);
                                 continue;
                             }
-                                
+                            
                             SYSCALL_EXIT("fclose", err, fclose(file), "Impossibile chiudere il file", "");
+                            chdir(config.read_dir);
                         }
                         else
                         {

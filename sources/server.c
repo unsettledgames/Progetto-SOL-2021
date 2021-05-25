@@ -47,7 +47,7 @@ sigset_t mask;
 
 int debug = 0;
 
-// Configurazione del server, globale per essere vista dalla cleanup
+// Configurazione del server
 ServerConfig config;
 
 int main(int argc, char** argv)
@@ -205,6 +205,7 @@ void* worker(void* args)
                 }
                 else if ((request.flags >> O_CREATE) & 1)
                 {
+                    int err;
                     // Il file non esisteva, allora lo aggiungo
                     // Preparo il file da aprire
                     File* to_open = my_malloc(sizeof(File));
@@ -216,7 +217,8 @@ void* worker(void* args)
                     strncpy(file_key, to_open->path, MAX_PATH_LENGTH);
 
                     // Inizializzo la lock
-                    pthread_mutex_init(&(to_open->lock), NULL);
+                    SYSCALL_EXIT("pthread_mutex_init", err, pthread_mutex_init(&(to_open->lock), NULL),
+                    "Impossibile inizializzare la lock del file", "");
                     // Imposto il descrittore del client
                     to_open->client_descriptor = request.client_descriptor;
                     // Segnalo che l'ultima operazione era una open
@@ -268,7 +270,6 @@ void* worker(void* args)
                     else
                         response.error_code = NOT_OPENED;
                     UNLOCK(&(to_read->lock));
-                    
                 }
                 else
                 {
@@ -739,17 +740,16 @@ void* dispatcher(void* args)
 void* connession_handler(void* args)
 {
     log_info("Inizializzazione dell'handler delle connessioni");
+    int err;
     // Maschero i segnali
     sigset_t mask, oldmask;
-    sigemptyset(&mask);   
-    sigaddset(&mask, SIGINT); 
-    sigaddset(&mask, SIGQUIT);
-    sigaddset(&mask, SIGHUP);
+    SYSCALL_EXIT("sigemptyset", err, sigemptyset(&mask), "Errore in sigemptyset", "");
+    SYSCALL_EXIT("sigaddset", err, sigaddset(&mask, SIGINT), "Errore in sigaddset", "");
+    SYSCALL_EXIT("sigaddset", err, sigaddset(&mask, SIGQUIT), "Errore in sigaddset", "");
+    SYSCALL_EXIT("sigaddset", err, sigaddset(&mask, SIGHUP), "Errore in sigaddset", "");
 
-    if (pthread_sigmask(SIG_BLOCK, &mask,&oldmask) != 0) {
-        fprintf(stderr, "Impossibile impostare la maschera dei segnali");
-        exit(EXIT_FAILURE);
-    }
+    SYSCALL_EXIT("pthread_sigmask", err, pthread_sigmask(SIG_BLOCK, &mask, &oldmask), 
+        "Errore in pthread_sigmask", "");
 
     // Informazioni del client
     struct sockaddr client_info;
@@ -854,7 +854,7 @@ int initialize_socket()
 {
     int err = 0;
     // Pulisco eventuali socket precedenti
-    cleanup(config.socket_name);
+    unlink(config.socket_name);
 
     // Creo il socket
     int socket_desc;
@@ -876,14 +876,6 @@ int initialize_socket()
 
     // Ritorno l'fd del server
     return socket_desc;
-}
-
-void cleanup()
-{
-    unlink(config.socket_name);
-
-    if (log_file != NULL)
-        fclose(log_file);
 }
 
 ServerConfig config_server(const char* file_name)
@@ -1052,8 +1044,6 @@ void* sighandler(void* param)
         if (signal == SIGINT || signal == SIGQUIT)
         {
             // Creo le statistiche
-            // Pulisco immediatamente
-            
             // Chiudo tutte le connessioni
             Node* curr = client_fds.head;
             while (curr != NULL)
@@ -1095,10 +1085,18 @@ void* sighandler(void* param)
             // Elimino il socket
             unlink(config.socket_name);
 
-            // Segnalo che ho terminato
-            must_stop = TRUE;
             // Esco      
             pthread_exit(NULL);
+        }
+        else
+        {
+            // Gestire sighup
+            // Finché la coda ha elementi
+                // Sveglio thread
+            // Uccido tutti
+            // Join di tutti
+            // Pulisco le strutture dati
+            // Esco
         }
     }
     pthread_exit(NULL);
