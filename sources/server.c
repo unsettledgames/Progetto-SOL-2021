@@ -119,8 +119,7 @@ int main(int argc, char** argv)
         }
 
         // Aspetto che il signal handler finisca
-        SYSCALL_EXIT("pthread_join", err, pthread_join(sighandler_tid, NULL), 
-            "Errore nella join del gestore dei segnali", "");
+        THREAD_JOIN(sighandler_tid, NULL);
     }
     else
     {
@@ -242,7 +241,7 @@ void* worker(void* args)
                     UNLOCK(&files_mutex);
                 }
 
-                writen(request.client_descriptor, &to_send, sizeof(to_send));
+                SERVER_OP(writen(request.client_descriptor, &to_send, sizeof(to_send)), sec_close_connection(request.client_descriptor));
                 break;
             case READFILE:;
                 log_info("Tentativo di apertura del file %s", request.path);
@@ -281,7 +280,7 @@ void* worker(void* args)
                     log_info("File letto, dimensione contenuto: %ld", strlen(response.content));
 
                 // Invio la risposta al client
-                writen(request.client_descriptor, &response, sizeof(response));
+                SERVER_OP(writen(request.client_descriptor, &response, sizeof(response)), sec_close_connection(request.client_descriptor));
                 break;
             case PARTIALREAD:;
                 int finished = FALSE;
@@ -299,7 +298,7 @@ void* worker(void* args)
                     log_info("Tentativo di leggere %d file", to_send);
 
                 // Indico al client quanti file sto per ritornare
-                writen(request.client_descriptor, &(to_send), sizeof(to_send));
+                SERVER_OP(writen(request.client_descriptor, &response, sizeof(response)), sec_close_connection(request.client_descriptor));
 
                 // Spedisco i file
                 for (int i=0; i<files.size && !finished; i++)
@@ -322,7 +321,7 @@ void* worker(void* args)
                         }
 
                         // Invio la risposta
-                        writen(request.client_descriptor, &response, sizeof(response));
+                        SERVER_OP(writen(request.client_descriptor, &response, sizeof(response)), sec_close_connection(request.client_descriptor));
                         log_info("File letto : %s, dimensione contenuto: %ld", response.path, strlen(response.content));
                         sent++;
 
@@ -433,7 +432,7 @@ void* worker(void* args)
                 }
 
                 // Invio to_send al client
-                writen(request.client_descriptor, &to_send, sizeof(int));
+                SERVER_OP(writen(request.client_descriptor, &to_send, sizeof(int)), sec_close_connection(request.client_descriptor));
 
                 // E invio anche i file rimossi
                 for (int i=0; i<to_send; i++)
@@ -451,7 +450,7 @@ void* worker(void* args)
                     server_decompress(response.content, response.content, files_to_send[i].content_size);
 
                     // Invio la risposta
-                    writen(request.client_descriptor, &response, sizeof(response));
+                    SERVER_OP(writen(request.client_descriptor, &response, sizeof(response)), sec_close_connection(request.client_descriptor));
                 }
 
                 // Solo ora posso scrivere i dati inviati dal client
@@ -525,7 +524,7 @@ void* worker(void* args)
                 UNLOCK(&files_mutex);
 
                 // Invio il risultato dell'operazione al client
-                writen(request.client_descriptor, &to_send, sizeof(to_send));
+                SERVER_OP(writen(request.client_descriptor, &to_send, sizeof(to_send)), sec_close_connection(request.client_descriptor));
                 
                 // Se non ci sono stati errori, invio i file al client
                 if (to_send >= 0)
@@ -542,7 +541,7 @@ void* worker(void* args)
                         server_decompress(response.content, response.content, files_to_send[i].content_size);
 
                         // Invio la risposta
-                        writen(request.client_descriptor, &response, sizeof(response));
+                        SERVER_OP(writen(request.client_descriptor, &response, sizeof(response)), sec_close_connection(request.client_descriptor));
                     }
                 }
 
@@ -587,7 +586,7 @@ void* worker(void* args)
                 }
 
                 // Invio la risposta
-                writen(request.client_descriptor, &to_send, sizeof(int));
+                SERVER_OP(writen(request.client_descriptor, &to_send, sizeof(int)), sec_close_connection(request.client_descriptor));
                 break;
             case CLOSECONNECTION:;
                 log_info("Chiusura della connessione da parte del client %d", request.client_descriptor);
@@ -605,21 +604,13 @@ void* worker(void* args)
                 list_remove_by_key(&client_fds, desc_string);
                 UNLOCK(&client_fds_lock);
                 
-                writen(request.client_descriptor, &to_send, sizeof(to_send));
+                SERVER_OP(writen(request.client_descriptor, &to_send, sizeof(to_send)), sec_close_connection(request.client_descriptor));
                 break;
             default:;
                 log_info("Ricevuta richiesta non supportata, chiusura della connessione al client %d", request.client_descriptor);
-                char to_remove[20];
-                sprintf(to_remove, "%d", request.client_descriptor);
                 fprintf(stderr, "Codice richiesta %d non supportato dal server\n", request.op_code);
                 // Chiudo la connessione con quel client
-                LOCK(&client_fds_lock);
-                list_remove_by_key(&client_fds, to_remove);
-                UNLOCK(&client_fds_lock);
-
-                LOCK(&desc_set_lock);
-                FD_CLR(request.client_descriptor, &desc_set);
-                UNLOCK(&desc_set_lock);
+                sec_close_connection(request.client_descriptor);
                 break;
         }
 
@@ -634,6 +625,20 @@ void* worker(void* args)
     }
 
     pthread_exit(NULL);
+}
+
+void sec_close_connection(int fd)
+{
+    char to_remove[20];
+    sprintf(to_remove, "%d", fd);
+
+    LOCK(&client_fds_lock);
+    list_remove_by_key(&client_fds, to_remove);
+    UNLOCK(&client_fds_lock);
+
+    LOCK(&desc_set_lock);
+    FD_CLR(fd, &desc_set);
+    UNLOCK(&desc_set_lock);
 }
 
 void* dispatcher(void* args)
@@ -725,7 +730,7 @@ void* dispatcher(void* args)
                             list_enqueue(&requests, request, NULL);
 
                             // Segnalo che la coda delle richieste ha un elemento da elaborare
-                            pthread_cond_signal(&queue_not_empty);
+                            SIGNAL(&queue_not_empty);
                             UNLOCK(&queue_mutex);
                         }
                     }
@@ -1056,49 +1061,83 @@ void* sighandler(void* param)
 
             for (int i=0; i<config.n_workers; i++)
             {
-                pthread_kill(tids[i], SIGKILL);
+                THREAD_KILL(tids[i], SIGKILL);
             }
 
             // Interrompo dispatcher, worker e accepters
-            pthread_kill(connession_handler_tid, SIGKILL);
-            pthread_kill(dispatcher_tid, SIGKILL);
+            THREAD_KILL(connession_handler_tid, SIGKILL);
+            THREAD_KILL(dispatcher_tid, SIGKILL);
 
             // Aspetto che il dispatcher finisca
-            pthread_join(dispatcher_tid, NULL);
+            THREAD_JOIN(dispatcher_tid, NULL);
             // Aspetto che il master finisca
-            pthread_join(connession_handler_tid, NULL);
+            THREAD_JOIN(connession_handler_tid, NULL);
 
             // Aspetto che i worker finiscano
             for (int i=0; i<config.n_workers; i++)
             {
-                pthread_join(tids[i], NULL);
+                THREAD_JOIN(tids[i], NULL);
             }
-
-            // Pulisco tutte le strutture dati
-            fclose(log_file);
-            // Lista dei client
-            list_clean(client_fds, NULL);
-            // Tabella dei file
-            hashmap_clean(files, NULL);
-            // Tids
-            free(tids);
-            // Elimino il socket
-            unlink(config.socket_name);
-
-            // Esco      
-            pthread_exit(NULL);
         }
         else
         {
-            // Gestire sighup
+            // SIGHUP
+            // Evito di ricevere nuove connessioni
+            THREAD_KILL(connession_handler_tid, SIGKILL);
             // Finché la coda ha elementi
+            LOCK(&files_mutex);
+            while (files.curr_size > 0)
+            {
                 // Sveglio thread
-            // Uccido tutti
-            // Join di tutti
-            // Pulisco le strutture dati
-            // Esco
+                UNLOCK(&files_mutex);
+                SIGNAL(&queue_not_empty);
+            }
+
+            // Chiudo tutte le connessioni
+            Node* curr = client_fds.head;
+            while (curr != NULL)
+            {
+                close(*((int*)curr->data));
+                curr = curr->next;
+            }
+
+            // Coda richieste
+            list_clean(requests, NULL);
+
+            for (int i=0; i<config.n_workers; i++)
+            {
+                THREAD_KILL(tids[i], SIGKILL);
+            }
+
+            THREAD_KILL(dispatcher_tid, SIGKILL);
+
+            // Aspetto che il dispatcher finisca
+            THREAD_JOIN(dispatcher_tid, NULL);
+            // Aspetto che il master finisca
+            THREAD_JOIN(connession_handler_tid, NULL);
+
+            // Aspetto che i worker finiscano
+            for (int i=0; i<config.n_workers; i++)
+            {
+                THREAD_JOIN(tids[i], NULL);
+            }
         }
+
+        // Pulisco tutte le strutture dati
+        fclose(log_file);
+        // Lista dei client
+        list_clean(client_fds, NULL);
+        // Tabella dei file
+        hashmap_clean(files, NULL);
+        // Tids
+        free(tids);
+        // Elimino il socket
+        unlink(config.socket_name);
+
+        // Esco      
+        pthread_exit(NULL);
     }
+
     pthread_exit(NULL);
 }
 
@@ -1125,8 +1164,8 @@ void clean_everything()
     // Elimino il socket
     unlink(config.socket_name);
     // Esco dall'handler
-    pthread_kill(sighandler_tid, SIGKILL);
-    pthread_join(sighandler_tid, NULL);
+    THREAD_KILL(sighandler_tid, SIGKILL);
+    THREAD_JOIN(sighandler_tid, NULL);
 }
 
 void log_info(const char* fmt, ...)

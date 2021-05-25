@@ -57,6 +57,23 @@
     pthread_exit((void*)EXIT_FAILURE);				    \
 }
 
+#define SIGNAL(c)    if (pthread_cond_signal(c)!=0)       { \
+    fprintf(stderr, "ERRORE FATALE signal\n");		    \
+    pthread_exit((void*)EXIT_FAILURE);				    \
+}
+
+#define THREAD_KILL(t, s)    if (pthread_kill(t, s)!=0)       { \
+    fprintf(stderr, "ERRORE FATALE kill\n");		    \
+    pthread_exit((void*)EXIT_FAILURE);				    \
+}
+
+#define THREAD_JOIN(t, v)    if (pthread_join(t, v)!=0)       { \
+    fprintf(stderr, "ERRORE FATALE join\n");		    \
+    pthread_exit((void*)EXIT_FAILURE);				    \
+}
+
+#define SERVER_OP(op, cc) if (op < 0) cc
+
 #define CALL_ZLIB(x) {                                                  \
         int status;                                                     \
         status = x;                                                     \

@@ -75,3 +75,5 @@ void log_info(const char* fmt, ...);
 int server_compress(char* data, char* buffer);
 
 int server_decompress(char* data, char* buffer, unsigned int data_size);
+
+void sec_close_connection(int fd);
