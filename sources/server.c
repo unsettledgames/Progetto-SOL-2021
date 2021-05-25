@@ -1,5 +1,8 @@
 #include "server.h"
 
+// Id del thread (usato nel log per le statistiche)
+int tid = 0;
+
 // Uscita dal programma
 volatile sig_atomic_t must_stop = 0;
 
@@ -112,8 +115,6 @@ int main(int argc, char** argv)
         // Faccio partire i thread workers
         for (int i=0; i<config.n_workers; i++)
         {
-            log_info("Partito thread worker %d", i);
-
             SYSCALL_EXIT("pthread_create", err, pthread_create(&tids[i], NULL, &worker, NULL), 
             "Errore in pthread_create del worker %d", i);
         }
@@ -133,6 +134,8 @@ int main(int argc, char** argv)
 
 void* worker(void* args)
 {
+    int my_tid = ++tid;
+    log_info("My tid: %d", my_tid);
     int err;
     // Maschero i segnali
     sigset_t mask, oldmask;
@@ -169,6 +172,7 @@ void* worker(void* args)
         if (must_stop)
             pthread_exit(NULL);
 
+        log_info("[RQ]\t%d", my_tid);
         // O è perché ho una richiesta da elaborare
         ClientRequest* to_free = (ClientRequest*)list_dequeue(&requests);
         // Copio la richiesta
@@ -201,6 +205,7 @@ void* worker(void* args)
                     UNLOCK(&to_open->lock);
 
                     log_info("File aperto con successo.");
+                    log_info("[OP]\topen");
                 }
                 else if ((request.flags >> O_CREATE) & 1)
                 {
@@ -234,6 +239,7 @@ void* worker(void* args)
                     UNLOCK(&files_mutex);
 
                     log_info("File creato e aperto con successo");
+                    log_info("[OP]\topen");
                 }    
                 else
                 {
@@ -278,6 +284,7 @@ void* worker(void* args)
 
                 if (response.error_code == OK)
                     log_info("File letto, dimensione contenuto: %ld", strlen(response.content));
+                log_info("[RD]\t%ld", strlen(response.content));
 
                 // Invio la risposta al client
                 SERVER_OP(writen(request.client_descriptor, &response, sizeof(response)), sec_close_connection(request.client_descriptor));
@@ -323,6 +330,7 @@ void* worker(void* args)
                         // Invio la risposta
                         SERVER_OP(writen(request.client_descriptor, &response, sizeof(response)), sec_close_connection(request.client_descriptor));
                         log_info("File letto : %s, dimensione contenuto: %ld", response.path, strlen(response.content));
+                        log_info("[RD]\t%ld", strlen(response.content));
                         sent++;
 
                         if (sent >= to_send)
@@ -381,6 +389,7 @@ void* worker(void* args)
                                 {
                                     log_info("Chiamato algoritmo di rimpiazzamento\n\t(Spazio: %d / %d)\n\t(N files: %d / %d)", 
                                         allocated_space, config.tot_space, n_files, config.max_files);
+                                    log_info("[LRU]\tcalled");
                                     // Calcolo il path del file da rimuovere
                                     char* to_remove = get_LRU(request.path);
                                     
@@ -461,7 +470,16 @@ void* worker(void* args)
                 to_write->content_size = file_size;
                 to_write->modified = TRUE;
 
+                LOCK(&allocated_space_mutex);
+                log_info("[SIZE]\t%d", allocated_space);
+                UNLOCK(&allocated_space_mutex);
+
+                LOCK(&files_mutex);
+                log_info("[NFILES]\t%d", files.curr_size);
+                UNLOCK(&files_mutex);
+
                 log_info("Scrittura del file %s di dimensione %d", request.path, file_size);
+                log_info("[WT]\t%ld", file_size);
 
                 // Dealloco
                 if (files_to_send != NULL)
@@ -492,6 +510,7 @@ void* worker(void* args)
                         // Altrimenti espello file finché non ho abbastanza spazio
                         while (allocated_space > config.tot_space && to_send >= 0)
                         {
+                            log_info("[LRU]\tcalled");
                             log_info("Invocato algoritmo di rimpiazzamento\n\t(Spazio: %d / %d)",
                                 allocated_space, config.tot_space);
                             // Provo a ottnere il path del lru
@@ -547,6 +566,14 @@ void* worker(void* args)
                     }
                 }
 
+                LOCK(&allocated_space_mutex);
+                log_info("[SIZE]\t%d", allocated_space);
+                UNLOCK(&allocated_space_mutex);
+
+                LOCK(&files_mutex);
+                log_info("[NFILES]\t%d", files.curr_size);
+                UNLOCK(&files_mutex);
+
                 // Adesso posso appendere
                 file->last_used = timestamp;
                 file->content_size += file_size;
@@ -555,6 +582,7 @@ void* worker(void* args)
                 strncat(file->content, request.content, request.content_size);
 
                 log_info("Appendo il contenuto di dimensione %d al file %s", file_size, file->path);
+                log_info("[WT]\t%d", file_size);
 
                 break;
             case CLOSEFILE:
@@ -574,6 +602,7 @@ void* worker(void* args)
                         to_close->last_op = CLOSEFILE;
 
                         log_info("Chiusura del file avvenuta con successo");
+                        log_info("[CL]\tclosed");
                     }
                     // Altrimenti segnalo quello che stavo cercando di fare
                     else
@@ -793,6 +822,7 @@ void* connession_handler(void* args)
             // richiesta di disconnessione che modifica la lista
             LOCK(&client_fds_lock);
             list_push(&client_fds, to_add, key);
+            log_info("[CL]\t%d", client_fds.length);
             UNLOCK(&client_fds_lock);
 
             // Aggiungo il descrittore al read set
@@ -1208,6 +1238,7 @@ int server_compress(char* data, char* buffer)
     char* a = data;
     // Buffer intermedio che contiene a in formato compresso
     char b[MAX_FILE_SIZE];
+    memset(b, 0, MAX_FILE_SIZE);
 
     // zlib struct
     z_stream defstream;
