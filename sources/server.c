@@ -629,6 +629,7 @@ void* worker(void* args)
 
 void sec_close_connection(int fd)
 {
+    printf("Errore di lettura o scrittura, chiusura della connessione con il client %d\n", fd);
     char to_remove[20];
     sprintf(to_remove, "%d", fd);
 
@@ -716,7 +717,10 @@ void* dispatcher(void* args)
                         int read_size = readn(curr_fd, request, sizeof(*request));
 
                         if (read_size == -1)
+                        {
                             perror("Errore nella lettura della richiesta del client");
+                            sec_close_connection(request->client_descriptor);
+                        }
                         else
                         {
                             // Aggiungo il file descriptor del client alla richiesta ricevuta
