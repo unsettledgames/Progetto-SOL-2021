@@ -120,10 +120,8 @@ int main(int argc, char** argv)
             "Errore in pthread_create del worker %d", i);
         }
 
-        printf("Attendo il sighandler\n");
         // Aspetto che il signal handler finisca
         THREAD_JOIN(sighandler_tid, NULL);
-        printf("Sighandler terminato\n");
     }
     else
     {
@@ -356,7 +354,6 @@ void* worker(void* args)
                     memset(compressed, 0, MAX_FILE_SIZE);
                     // Comprimo il file
                     file_size = server_compress(request.content, request.content, request.content_size);
-                    fprintf(stderr, "Compressed size: %d\n", file_size);
                     // Dato che esiste, prendo il file corrispondente al path
                     to_write = (File*)hashmap_get(files, request.path);
                     UNLOCK(&files_mutex);
@@ -463,7 +460,6 @@ void* worker(void* args)
 
                 // Solo ora posso scrivere i dati inviati dal client
                 memcpy(to_write->content, request.content, file_size);
-                fprintf(stderr, "Content: %s size: %d\n", to_write->content, file_size);
                 to_write->last_op = WRITEFILE;
                 to_write->last_used = timestamp;
                 to_write->content_size = file_size;
@@ -656,7 +652,6 @@ void* worker(void* args)
         UNLOCK(&desc_set_lock);
     }
 
-    printf("Worker %d terminato\n", my_tid);
     pthread_exit(NULL);
 }
 
@@ -766,7 +761,7 @@ void* dispatcher(void* args)
             }
         }
     }
-    printf("Dispatcher terminato\n");
+
     pthread_exit(NULL);
 }
 
@@ -816,7 +811,6 @@ void* connession_handler(void* args)
         }
     }
     
-    printf("Connession handler terminato\n");
     pthread_exit(NULL);
 }
 
@@ -1057,8 +1051,6 @@ void* sighandler(void* param)
     while (TRUE)
     {
         sigwait(&mask, &signal);
-    
-        printf("INVOCATO %d\n", signal);
 
         if (!must_stop)
         {
@@ -1108,7 +1100,18 @@ void* sighandler(void* param)
             {
                 // SIGHUP
                 // Evito di ricevere nuove connessioni
-                THREAD_KILL(connession_handler_tid, SIGTERM);
+                // Mando una finta connessione per sbloccare il gestore delle connessioni e farlo terminare
+                int socket_fd;
+                socket_fd = socket(AF_UNIX, SOCK_STREAM, 0);
+                // Indirizzo del socket
+                struct sockaddr_un address;
+                memset(&address, 0, sizeof(address));
+                strncpy(address.sun_path, config.socket_name, strlen(config.socket_name));
+                address.sun_family = AF_UNIX;
+                connect(socket_fd, (struct sockaddr*) &address, sizeof(address));
+
+                THREAD_JOIN(connession_handler_tid, NULL);
+
                 // Finché la coda ha elementi
                 LOCK(&files_mutex);
                 while (files.curr_size > 0)
@@ -1116,7 +1119,9 @@ void* sighandler(void* param)
                     // Sveglio thread
                     UNLOCK(&files_mutex);
                     SIGNAL(&queue_not_empty);
+                    LOCK(&files_mutex);
                 }
+                UNLOCK(&files_mutex);
 
                 // Chiudo tutte le connessioni
                 Node* curr = client_fds.head;
@@ -1131,21 +1136,11 @@ void* sighandler(void* param)
 
                 for (int i=0; i<config.n_workers; i++)
                 {
-                    THREAD_KILL(tids[i], SIGTERM);
+                    THREAD_JOIN(tids[i], NULL);
                 }
-
-                THREAD_KILL(dispatcher_tid, SIGTERM);
 
                 // Aspetto che il dispatcher finisca
                 THREAD_JOIN(dispatcher_tid, NULL);
-                // Aspetto che il master finisca
-                THREAD_JOIN(connession_handler_tid, NULL);
-
-                // Aspetto che i worker finiscano
-                for (int i=0; i<config.n_workers; i++)
-                {
-                    THREAD_JOIN(tids[i], NULL);
-                }
             }
 
             // Pulisco tutte le strutture dati
@@ -1258,7 +1253,6 @@ int server_compress(char* data, char* buffer, int size)
 
 int server_decompress(char* data, char* buffer, unsigned int data_size)
 {
-    fprintf(stderr, "To decompress: %s\n", buffer);
     // Buffer provvisorio per la decompressione
     char c[MAX_FILE_SIZE];
 

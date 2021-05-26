@@ -403,7 +403,7 @@ int execute_requests(ClientConfig config, List* requests)
 int send_from_dir(const char* dirpath, int* n_files, const char* write_dir)
 {
     errno = 0;
-    //int must_print = client_configuration.print_op_data;
+    int must_print = client_configuration.print_op_data;
     // Se ho finito, ritorno
     if (n_files == 0)
         return 0;
@@ -470,11 +470,17 @@ int send_from_dir(const char* dirpath, int* n_files, const char* write_dir)
             
             realpath(dirpath, full_path);
             // Provo ad aprire il file
-            if (openFile(full_path, 0) == 0)
+            if (openFile(full_path, (1 << O_CREATE)) == 0)
             {
+                if (must_print)
+                    printf("Aperto il file %s\n", full_path);
                 // Se l'invio è avvenuto con successo, segnalo che ho scritto un file
                 if (writeFile(full_path, write_dir) == 0)
+                {
+                    if (must_print)
+                        printf("Scritto il file\n");
                     (*n_files)--;
+                }
 
                 closeFile(full_path);
             }
@@ -570,10 +576,7 @@ ClientConfig initialize_client(Hashmap config)
         ret.expelled_dir = (char*)hashmap_get(config, "D");
 
     if (hashmap_has_key(config, "d"))
-    {
         ret.read_dir = (char*)hashmap_get(config, "d");
-        printf("Read dir: %s\n", ret.read_dir);
-    }
 
     if (hashmap_has_key(config, "t"))
         ret.request_rate = atol((char*)hashmap_get(config, "t"));

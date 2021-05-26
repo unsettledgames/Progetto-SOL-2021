@@ -86,7 +86,6 @@ static int handle_expelled_files(int to_read, const char* dirname)
                 // Scrivo nella cartella
                 FILE* file = fopen(expelled_path, "wb");
 
-                fprintf(stderr, "\n\nContent size: %d\n\n", response.content_size);
                 if (fwrite(response.content, sizeof(char), response.content_size, file) < 0)
                 {
                     SYSCALL_EXIT("fclose", err, fclose(file), "Impossibile chiudere il file", "");
