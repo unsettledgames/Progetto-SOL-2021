@@ -69,9 +69,10 @@ $(O_FOLDER)/utility.o:
 
 # Make dei test, che hanno bisogno sia del client che del server
 test1: client server
-	echo "Esecuzione del test 1"; \
-	./server config.txt & echo $$! > serverid.pid & sleep 2s; \
-	kill -2 $$(cat serverid.pid); \
+	@echo "Esecuzione del test 1"; \
+	echo -e "1\n128000000\n10000\nLSOfilestorage.sk\nLogs" > config.txt; \
+	valgrind --leak-check=full ./server config.txt & echo $$! > serverid.pid & sleep 2s; \
+	kill -SIGHUP $$(cat serverid.pid); \
 	./stats.sh
 	
 #test2: client server

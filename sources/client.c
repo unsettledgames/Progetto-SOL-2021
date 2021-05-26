@@ -158,7 +158,7 @@ int execute_requests(ClientConfig config, List* requests)
                         if ((err = writeFile(args[i], config.expelled_dir)) != 0)
                         {
                             if (must_print)
-                                printf (", fallita\n");
+                                printf (", fallita (err %d)\n", err);
                             fprintf(stderr, "Impossibile scrivere il file (errore %d)\n", errno);
                             i++;
                             continue;

@@ -158,10 +158,7 @@ void* worker(void* args)
         // Mi metto in attesa sulla variabile condizionale
         LOCK(&queue_mutex);
         while (!must_stop && requests.length <= 0)
-        {
             WAIT(&queue_not_empty, &queue_mutex);
-            fprintf(stderr, "Svegliato\n");
-        }
         
         // Se sono arrivato fin qui, o è perché devo terminare
         if (must_stop)
@@ -231,6 +228,8 @@ void* worker(void* args)
                     to_open->last_used = timestamp;
                     // Il file non è stato modificato inizialmente
                     to_open->modified = FALSE;
+                    // Il contenuto iniziale ha dimensione 0
+                    to_open->content_size = 0;
 
                     // Infine aggiungo il file alla tabella
                     hashmap_put(&files, to_open, file_key);
@@ -266,9 +265,9 @@ void* worker(void* args)
                     if (to_read->is_open)
                     {
                         // Copio il contenuto
-                        strcpy(response.content,to_read->content);
+                        memcpy(response.content, to_read->content, to_read->content_size);
                         // Lo decomprimo
-                        server_decompress(response.content, response.content, to_read->content_size);
+                        response.content_size = server_decompress(response.content, response.content, to_read->content_size);
                     }
                     else
                         response.error_code = NOT_OPENED;
@@ -281,8 +280,8 @@ void* worker(void* args)
                 }
 
                 if (response.error_code == OK)
-                    log_info("File letto, dimensione contenuto: %ld", strlen(response.content));
-                log_info("[RD] %ld", strlen(response.content));
+                    log_info("File letto, dimensione contenuto: %ld", response.content_size);
+                log_info("[RD] %ld", response.content_size);
 
                 // Invio la risposta al client
                 SERVER_OP(writen(request.client_descriptor, &response, sizeof(response)), sec_close_connection(request.client_descriptor));
@@ -320,15 +319,15 @@ void* worker(void* args)
                         {
                             curr_file->last_used = timestamp;
                             strcpy(response.path, curr_file->path);
-                            strcpy(response.content, curr_file->content);
+                            memcpy(response.content, curr_file->content, curr_file->content_size);
                             // Decomprimo il contenuto
-                            server_decompress(response.content, response.content, curr_file->content_size);
+                            response.content_size = server_decompress(response.content, response.content, curr_file->content_size);
                         }
                         
                         // Invio la risposta
                         SERVER_OP(writen(request.client_descriptor, &response, sizeof(response)), sec_close_connection(request.client_descriptor));
-                        log_info("File letto : %s, dimensione contenuto: %ld", response.path, strlen(response.content));
-                        log_info("[RD] %ld", strlen(response.content));
+                        log_info("File letto : %s, dimensione contenuto: %ld", response.path, response.content_size);
+                        log_info("[RD] %ld",  response.content_size);
                         sent++;
 
                         if (sent >= to_send)
@@ -356,7 +355,8 @@ void* worker(void* args)
                     char compressed[MAX_FILE_SIZE];
                     memset(compressed, 0, MAX_FILE_SIZE);
                     // Comprimo il file
-                    file_size = server_compress(request.content, request.content);
+                    file_size = server_compress(request.content, request.content, request.content_size);
+                    fprintf(stderr, "Compressed size: %d\n", file_size);
                     // Dato che esiste, prendo il file corrispondente al path
                     to_write = (File*)hashmap_get(files, request.path);
                     UNLOCK(&files_mutex);
@@ -452,17 +452,18 @@ void* worker(void* args)
 
                     response.error_code = 0;
                     memcpy(response.path, files_to_send[i].path, sizeof(files_to_send[i].path));
-                    memcpy(response.content, files_to_send[i].content, sizeof(files_to_send[i].content));
+                    memcpy(response.content, files_to_send[i].content, files_to_send[i].content_size);
 
                     // Decomprimo i dati prima di spedirli
-                    server_decompress(response.content, response.content, files_to_send[i].content_size);
+                    response.content_size = server_decompress(response.content, response.content, files_to_send[i].content_size);
 
                     // Invio la risposta
                     SERVER_OP(writen(request.client_descriptor, &response, sizeof(response)), sec_close_connection(request.client_descriptor));
                 }
 
                 // Solo ora posso scrivere i dati inviati dal client
-                memcpy(to_write->content, request.content, sizeof(to_write->content));
+                memcpy(to_write->content, request.content, file_size);
+                fprintf(stderr, "Content: %s size: %d\n", to_write->content, file_size);
                 to_write->last_op = WRITEFILE;
                 to_write->last_used = timestamp;
                 to_write->content_size = file_size;
@@ -492,13 +493,13 @@ void* worker(void* args)
                 // Array dei file da espellere
                 files_to_send = my_malloc(sizeof(File) * files.curr_size);
                 // Dimensione del contenuto da appendere
-                file_size = server_compress(request.content, request.content);
+                file_size = server_compress(request.content, request.content, request.content_size);
 
                 if (file != NULL)
                 {
                     LOCK(&allocated_space_mutex);
                     // Aggiungo la lunghezza dei dati da concatenare al file
-                    allocated_space += strlen(request.content);
+                    allocated_space += file_size;
 
                     // Se sto cercando di avere un file più grande dell'intero sistema, non ho speranze di aggiungerlo
                     if ((file_size + file->content_size) > config.tot_space)
@@ -556,8 +557,8 @@ void* worker(void* args)
 
                         response.error_code = 0;
                         memcpy(response.path, files_to_send[i].path, sizeof(response.path));
-                        memcpy(response.content, files_to_send[i].content, sizeof(response.content));
-                        server_decompress(response.content, response.content, files_to_send[i].content_size);
+                        memcpy(response.content, files_to_send[i].content, file_size);
+                        response.content_size = server_decompress(response.content, response.content, files_to_send[i].content_size);
 
                         // Invio la risposta
                         SERVER_OP(writen(request.client_descriptor, &response, sizeof(response)), sec_close_connection(request.client_descriptor));
@@ -577,7 +578,7 @@ void* worker(void* args)
                 file->content_size += file_size;
                 file->modified = TRUE;
                 free(files_to_send);
-                strncat(file->content, request.content, request.content_size);
+                strncat(file->content, request.content, file_size);
 
                 log_info("Appendo il contenuto di dimensione %d al file %s", file_size, file->path);
                 log_info("[WT] %d", file_size);
@@ -1221,7 +1222,7 @@ void log_info(const char* fmt, ...)
     UNLOCK(&log_mutex);
 }
 
-int server_compress(char* data, char* buffer)
+int server_compress(char* data, char* buffer, int size)
 {
     // Buffer sorgente
     char* a = data;
@@ -1235,7 +1236,7 @@ int server_compress(char* data, char* buffer)
     defstream.zfree = Z_NULL;
     defstream.opaque = Z_NULL;
     // Dimensione dell'input
-    defstream.avail_in = (uInt)strlen(a)+1;
+    defstream.avail_in = (uInt)size+1;
     // Input
     defstream.next_in = (Bytef *)a;
     // Dimensione dell'output
@@ -1249,7 +1250,7 @@ int server_compress(char* data, char* buffer)
     deflateEnd(&defstream);
 
     // Copio i dati nel buffer di ritorno
-    memcpy(buffer, b, strlen(b));
+    memcpy(buffer, b, defstream.total_out);
 
     // Ritorno la dimensione dei dati compressi
     return defstream.total_out;
@@ -1257,6 +1258,7 @@ int server_compress(char* data, char* buffer)
 
 int server_decompress(char* data, char* buffer, unsigned int data_size)
 {
+    fprintf(stderr, "To decompress: %s\n", buffer);
     // Buffer provvisorio per la decompressione
     char c[MAX_FILE_SIZE];
 
@@ -1281,6 +1283,6 @@ int server_decompress(char* data, char* buffer, unsigned int data_size)
 
     // Copio nel buffer di ritorno
     memcpy(buffer, c, infstream.total_out);
-    // Ritorno la dimensione della stringa (anche se non strettamente necessario)
+    // Ritorno la dimensione della stringa decompressa
     return infstream.total_out;
 }

@@ -1,7 +1,8 @@
 # Progetto-SOL-2021
 
 ## TODO LIST
-- Stampa statistiche
+- Evitare esecuzione della connessione se è una finta connessione per sbloccare l'handler
+- Error checking nella finta connnessione per sbloccare l'handler
 - test
 - Funzioni opzionali
   - test3 (da valutare)

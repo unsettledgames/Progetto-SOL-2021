@@ -43,7 +43,6 @@
 
 static int socket_fd;
 
-
 static void get_right_path(const char* path, char* buffer, int len)
 {
     char* result = realpath(path, buffer);
@@ -77,7 +76,7 @@ static int handle_expelled_files(int to_read, const char* dirname)
 
         if (err > 0 && response.error_code == OK)
         {
-            if (dirname != NULL)
+            if (dirname != NULL && response.content_size != 0)
             {
                 // Aggiungo 'expelled' al nome del file espulso
                 strncpy(&expelled_path[1], response.path, MAX_PATH_LENGTH);
@@ -87,7 +86,8 @@ static int handle_expelled_files(int to_read, const char* dirname)
                 // Scrivo nella cartella
                 FILE* file = fopen(expelled_path, "wb");
 
-                if (fwrite(response.content, sizeof(char), sizeof(response.content), file) <= 0)
+                fprintf(stderr, "\n\nContent size: %d\n\n", response.content_size);
+                if (fwrite(response.content, sizeof(char), response.content_size, file) < 0)
                 {
                     SYSCALL_EXIT("fclose", err, fclose(file), "Impossibile chiudere il file", "");
                     return WRITE_FILE_ERROR;
@@ -136,17 +136,13 @@ int openConnection(const char* sockname, int msec, const struct timespec abstime
     while ((err = connect(socket_fd, (struct sockaddr*) &address, sizeof(address))) != 0 && 
         abstime.tv_sec > curr_time.tv_sec)
     {
-        printf("Server irraggiungibile, ritento...\n");
         sleep(msec / 1000);
         err = 0;
         SYSCALL_RETURN("clock_gettime", err, clock_gettime(CLOCK_REALTIME, &curr_time), "Impossibile ottenere il tempo corrente.\n", "");
     }
 
     if (err != -1)
-    {
-        printf("Client connesso con successo.\n");
         return OK;
-    }
 
     errno = CONNECTION_TIMEOUT;
     return CONNECTION_TIMEOUT;
@@ -249,6 +245,7 @@ int writeFile(const char* pathname, const char* dirname)
         SYSCALL_EXIT("fclose", ret, fclose(to_read), "Impossibile chiudere il file", "");
         return errno;
     }
+
     SYSCALL_EXIT("fclose", ret, fclose(to_read), "Impossibile chiudere il file", "");
 
     // Creo una richiesta
@@ -256,7 +253,8 @@ int writeFile(const char* pathname, const char* dirname)
     memset(&to_send, 0, sizeof(to_send));
     // La imposto correttamente
     strcpy(to_send.path, path);
-    strcpy(to_send.content, write_buffer);
+    memcpy(to_send.content, write_buffer, n_read);
+    to_send.content_size = n_read;
     to_send.op_code = WRITEFILE;
     to_send.timestamp = timestamp;
 
@@ -385,7 +383,7 @@ int appendToFile(const char* pathname, void* buf, size_t size, const char* dirna
     // Creo la richiesta di append
     to_send.op_code = APPENDTOFILE;
     strcpy(to_send.path, path);
-    strcpy(to_send.content, buf);
+    memcpy(to_send.content, buf, size);
     to_send.content_size = size;
     to_send.timestamp = timestamp;
 
