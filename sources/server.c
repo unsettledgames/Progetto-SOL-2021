@@ -99,6 +99,7 @@ int main(int argc, char** argv)
         create_log();
 
         log_info("Configurazione del server acquisita correttamente");
+        log_info("[NTH] %d", config.n_workers);
 
         // Alloco spazio per i tids
         tids = my_malloc(sizeof(pthread_t) * config.n_workers);
@@ -119,8 +120,10 @@ int main(int argc, char** argv)
             "Errore in pthread_create del worker %d", i);
         }
 
+        printf("Attendo il sighandler\n");
         // Aspetto che il signal handler finisca
         THREAD_JOIN(sighandler_tid, NULL);
+        printf("Sighandler terminato\n");
     }
     else
     {
@@ -134,18 +137,7 @@ int main(int argc, char** argv)
 
 void* worker(void* args)
 {
-    int my_tid = ++tid;
-    log_info("My tid: %d", my_tid);
-    int err;
-    // Maschero i segnali
-    sigset_t mask, oldmask;
-    SYSCALL_EXIT("sigemptyset", err, sigemptyset(&mask), "Errore in sigemptyset", "");
-    SYSCALL_EXIT("sigaddset", err, sigaddset(&mask, SIGINT), "Errore in sigaddset", "");
-    SYSCALL_EXIT("sigaddset", err, sigaddset(&mask, SIGQUIT), "Errore in sigaddset", "");
-    SYSCALL_EXIT("sigaddset", err, sigaddset(&mask, SIGHUP), "Errore in sigaddset", "");
-
-    SYSCALL_EXIT("pthread_sigmask", err, pthread_sigmask(SIG_BLOCK, &mask, &oldmask), 
-        "Errore in pthread_sigmask", "");
+    int my_tid = tid++;
 
     // Salvataggio della richiesta
     ClientRequest request;
@@ -165,14 +157,20 @@ void* worker(void* args)
 
         // Mi metto in attesa sulla variabile condizionale
         LOCK(&queue_mutex);
-        while (requests.length <= 0 && !must_stop)
+        while (!must_stop && requests.length <= 0)
+        {
             WAIT(&queue_not_empty, &queue_mutex);
+            fprintf(stderr, "Svegliato\n");
+        }
         
         // Se sono arrivato fin qui, o è perché devo terminare
         if (must_stop)
+        {
+            UNLOCK(&queue_mutex);
             pthread_exit(NULL);
+        }
 
-        log_info("[RQ]\t%d", my_tid);
+        log_info("[RQ] %d", my_tid);
         // O è perché ho una richiesta da elaborare
         ClientRequest* to_free = (ClientRequest*)list_dequeue(&requests);
         // Copio la richiesta
@@ -205,7 +203,7 @@ void* worker(void* args)
                     UNLOCK(&to_open->lock);
 
                     log_info("File aperto con successo.");
-                    log_info("[OP]\topen");
+                    log_info("[OP] open");
                 }
                 else if ((request.flags >> O_CREATE) & 1)
                 {
@@ -239,7 +237,7 @@ void* worker(void* args)
                     UNLOCK(&files_mutex);
 
                     log_info("File creato e aperto con successo");
-                    log_info("[OP]\topen");
+                    log_info("[OP] open");
                 }    
                 else
                 {
@@ -284,7 +282,7 @@ void* worker(void* args)
 
                 if (response.error_code == OK)
                     log_info("File letto, dimensione contenuto: %ld", strlen(response.content));
-                log_info("[RD]\t%ld", strlen(response.content));
+                log_info("[RD] %ld", strlen(response.content));
 
                 // Invio la risposta al client
                 SERVER_OP(writen(request.client_descriptor, &response, sizeof(response)), sec_close_connection(request.client_descriptor));
@@ -330,7 +328,7 @@ void* worker(void* args)
                         // Invio la risposta
                         SERVER_OP(writen(request.client_descriptor, &response, sizeof(response)), sec_close_connection(request.client_descriptor));
                         log_info("File letto : %s, dimensione contenuto: %ld", response.path, strlen(response.content));
-                        log_info("[RD]\t%ld", strlen(response.content));
+                        log_info("[RD] %ld", strlen(response.content));
                         sent++;
 
                         if (sent >= to_send)
@@ -389,7 +387,7 @@ void* worker(void* args)
                                 {
                                     log_info("Chiamato algoritmo di rimpiazzamento\n\t(Spazio: %d / %d)\n\t(N files: %d / %d)", 
                                         allocated_space, config.tot_space, n_files, config.max_files);
-                                    log_info("[LRU]\tcalled");
+                                    log_info("[LRU] called");
                                     // Calcolo il path del file da rimuovere
                                     char* to_remove = get_LRU(request.path);
                                     
@@ -471,15 +469,15 @@ void* worker(void* args)
                 to_write->modified = TRUE;
 
                 LOCK(&allocated_space_mutex);
-                log_info("[SIZE]\t%d", allocated_space);
+                log_info("[SIZE] %d", allocated_space);
                 UNLOCK(&allocated_space_mutex);
 
                 LOCK(&files_mutex);
-                log_info("[NFILES]\t%d", files.curr_size);
+                log_info("[NFILES] %d", files.curr_size);
                 UNLOCK(&files_mutex);
 
                 log_info("Scrittura del file %s di dimensione %d", request.path, file_size);
-                log_info("[WT]\t%ld", file_size);
+                log_info("[WT] %ld", file_size);
 
                 // Dealloco
                 if (files_to_send != NULL)
@@ -510,7 +508,7 @@ void* worker(void* args)
                         // Altrimenti espello file finché non ho abbastanza spazio
                         while (allocated_space > config.tot_space && to_send >= 0)
                         {
-                            log_info("[LRU]\tcalled");
+                            log_info("[LRU] called");
                             log_info("Invocato algoritmo di rimpiazzamento\n\t(Spazio: %d / %d)",
                                 allocated_space, config.tot_space);
                             // Provo a ottnere il path del lru
@@ -567,11 +565,11 @@ void* worker(void* args)
                 }
 
                 LOCK(&allocated_space_mutex);
-                log_info("[SIZE]\t%d", allocated_space);
+                log_info("[SIZE] %d", allocated_space);
                 UNLOCK(&allocated_space_mutex);
 
                 LOCK(&files_mutex);
-                log_info("[NFILES]\t%d", files.curr_size);
+                log_info("[NFILES] %d", files.curr_size);
                 UNLOCK(&files_mutex);
 
                 // Adesso posso appendere
@@ -582,7 +580,7 @@ void* worker(void* args)
                 strncat(file->content, request.content, request.content_size);
 
                 log_info("Appendo il contenuto di dimensione %d al file %s", file_size, file->path);
-                log_info("[WT]\t%d", file_size);
+                log_info("[WT] %d", file_size);
 
                 break;
             case CLOSEFILE:
@@ -602,7 +600,7 @@ void* worker(void* args)
                         to_close->last_op = CLOSEFILE;
 
                         log_info("Chiusura del file avvenuta con successo");
-                        log_info("[CL]\tclosed");
+                        log_info("[CL] closed");
                     }
                     // Altrimenti segnalo quello che stavo cercando di fare
                     else
@@ -657,6 +655,7 @@ void* worker(void* args)
         UNLOCK(&desc_set_lock);
     }
 
+    printf("Worker %d terminato\n", my_tid);
     pthread_exit(NULL);
 }
 
@@ -680,17 +679,6 @@ void sec_close_connection(int fd)
 void* dispatcher(void* args)
 {
     log_info("Inizializzazione del dispatcher");
-    // Maschero i segnali
-    sigset_t mask, oldmask;
-    sigemptyset(&mask);   
-    sigaddset(&mask, SIGINT); 
-    sigaddset(&mask, SIGQUIT);
-    sigaddset(&mask, SIGHUP);
-
-    if (pthread_sigmask(SIG_BLOCK, &mask,&oldmask) != 0) {
-        perror("Impossibile impostare la maschera dei segnali");
-        exit(EXIT_FAILURE);
-    }
     // Read set, è locale e serve solo al dispatcher
     fd_set read_set;
 
@@ -784,17 +772,6 @@ void* dispatcher(void* args)
 void* connession_handler(void* args)
 {
     log_info("Inizializzazione dell'handler delle connessioni");
-    int err;
-    // Maschero i segnali
-    sigset_t mask, oldmask;
-    SYSCALL_EXIT("sigemptyset", err, sigemptyset(&mask), "Errore in sigemptyset", "");
-    SYSCALL_EXIT("sigaddset", err, sigaddset(&mask, SIGINT), "Errore in sigaddset", "");
-    SYSCALL_EXIT("sigaddset", err, sigaddset(&mask, SIGQUIT), "Errore in sigaddset", "");
-    SYSCALL_EXIT("sigaddset", err, sigaddset(&mask, SIGHUP), "Errore in sigaddset", "");
-
-    SYSCALL_EXIT("pthread_sigmask", err, pthread_sigmask(SIG_BLOCK, &mask, &oldmask), 
-        "Errore in pthread_sigmask", "");
-
     // Informazioni del client
     struct sockaddr client_info;
     socklen_t client_addr_length = sizeof(client_info);
@@ -822,7 +799,7 @@ void* connession_handler(void* args)
             // richiesta di disconnessione che modifica la lista
             LOCK(&client_fds_lock);
             list_push(&client_fds, to_add, key);
-            log_info("[CL]\t%d", client_fds.length);
+            log_info("[CN] %d", client_fds.length);
             UNLOCK(&client_fds_lock);
 
             // Aggiungo il descrittore al read set
@@ -1075,106 +1052,118 @@ void print_file_node(Node* to_print)
 void* sighandler(void* param)
 {
     int signal = -1;
-    sigwait(&mask, &signal);
-
-    if (!must_stop)
+    
+    while (TRUE)
     {
-        // Segnalo che ho terminato
-        must_stop = TRUE;
+        sigwait(&mask, &signal);
+    
+        printf("INVOCATO %d\n", signal);
 
-        if (signal == SIGINT || signal == SIGQUIT)
+        if (!must_stop)
         {
-            // Creo le statistiche
-            // Chiudo tutte le connessioni
-            Node* curr = client_fds.head;
-            while (curr != NULL)
+            // Segnalo che ho terminato
+            must_stop = TRUE;
+
+            if (signal == SIGINT || signal == SIGQUIT)
             {
-                close(*((int*)curr->data));
-                curr = curr->next;
-            }
-            // Coda richieste
-            list_clean(requests, NULL);
+                // Creo le statistiche
+                // Chiudo tutte le connessioni
+                Node* curr = client_fds.head;
+                while (curr != NULL)
+                {
+                    close(*((int*)curr->data));
+                    curr = curr->next;
+                }
+                // Coda richieste
+                list_clean(requests, NULL);
 
-            for (int i=0; i<config.n_workers; i++)
+                // Aspetto che il dispatcher finisca
+                THREAD_JOIN(dispatcher_tid, NULL);
+
+                // Mando una finta connessione per sbloccare il gestore delle connessioni
+                int socket_fd;
+                socket_fd = socket(AF_UNIX, SOCK_STREAM, 0);
+                // Indirizzo del socket
+                struct sockaddr_un address;
+                memset(&address, 0, sizeof(address));
+                strncpy(address.sun_path, config.socket_name, strlen(config.socket_name));
+                address.sun_family = AF_UNIX;
+                connect(socket_fd, (struct sockaddr*) &address, sizeof(address));
+
+                // Aspetto che il master finisca
+                THREAD_JOIN(connession_handler_tid, NULL);
+
+                printf("Aspetto\n");
+                // Risveglio tutti i worker
+                pthread_cond_broadcast(&queue_not_empty);
+
+                // Aspetto che i worker finiscano
+                for (int i=0; i<config.n_workers; i++)
+                {
+                    THREAD_JOIN(tids[i], NULL);
+                }
+            }
+            else
             {
-                THREAD_KILL(tids[i], SIGKILL);
+                // SIGHUP
+                // Evito di ricevere nuove connessioni
+                THREAD_KILL(connession_handler_tid, SIGTERM);
+                // Finché la coda ha elementi
+                LOCK(&files_mutex);
+                while (files.curr_size > 0)
+                {
+                    // Sveglio thread
+                    UNLOCK(&files_mutex);
+                    SIGNAL(&queue_not_empty);
+                }
+
+                // Chiudo tutte le connessioni
+                Node* curr = client_fds.head;
+                while (curr != NULL)
+                {
+                    close(*((int*)curr->data));
+                    curr = curr->next;
+                }
+
+                // Coda richieste
+                list_clean(requests, NULL);
+
+                for (int i=0; i<config.n_workers; i++)
+                {
+                    THREAD_KILL(tids[i], SIGTERM);
+                }
+
+                THREAD_KILL(dispatcher_tid, SIGTERM);
+
+                // Aspetto che il dispatcher finisca
+                THREAD_JOIN(dispatcher_tid, NULL);
+                // Aspetto che il master finisca
+                THREAD_JOIN(connession_handler_tid, NULL);
+
+                // Aspetto che i worker finiscano
+                for (int i=0; i<config.n_workers; i++)
+                {
+                    THREAD_JOIN(tids[i], NULL);
+                }
             }
 
-            // Interrompo dispatcher, worker e accepters
-            THREAD_KILL(connession_handler_tid, SIGKILL);
-            THREAD_KILL(dispatcher_tid, SIGKILL);
+            // Pulisco tutte le strutture dati
+            fclose(log_file);
+            // Lista dei client
+            list_clean(client_fds, NULL);
+            // Tabella dei file
+            hashmap_clean(files, NULL);
+            // Tids
+            free(tids);
+            // Elimino il socket
+            unlink(config.socket_name);
 
-            // Aspetto che il dispatcher finisca
-            THREAD_JOIN(dispatcher_tid, NULL);
-            // Aspetto che il master finisca
-            THREAD_JOIN(connession_handler_tid, NULL);
-
-            // Aspetto che i worker finiscano
-            for (int i=0; i<config.n_workers; i++)
-            {
-                THREAD_JOIN(tids[i], NULL);
-            }
+            // Stampo le statistiche
+            printf("finite stats\n");
         }
-        else
-        {
-            // SIGHUP
-            // Evito di ricevere nuove connessioni
-            THREAD_KILL(connession_handler_tid, SIGKILL);
-            // Finché la coda ha elementi
-            LOCK(&files_mutex);
-            while (files.curr_size > 0)
-            {
-                // Sveglio thread
-                UNLOCK(&files_mutex);
-                SIGNAL(&queue_not_empty);
-            }
-
-            // Chiudo tutte le connessioni
-            Node* curr = client_fds.head;
-            while (curr != NULL)
-            {
-                close(*((int*)curr->data));
-                curr = curr->next;
-            }
-
-            // Coda richieste
-            list_clean(requests, NULL);
-
-            for (int i=0; i<config.n_workers; i++)
-            {
-                THREAD_KILL(tids[i], SIGKILL);
-            }
-
-            THREAD_KILL(dispatcher_tid, SIGKILL);
-
-            // Aspetto che il dispatcher finisca
-            THREAD_JOIN(dispatcher_tid, NULL);
-            // Aspetto che il master finisca
-            THREAD_JOIN(connession_handler_tid, NULL);
-
-            // Aspetto che i worker finiscano
-            for (int i=0; i<config.n_workers; i++)
-            {
-                THREAD_JOIN(tids[i], NULL);
-            }
-        }
-
-        // Pulisco tutte le strutture dati
-        fclose(log_file);
-        // Lista dei client
-        list_clean(client_fds, NULL);
-        // Tabella dei file
-        hashmap_clean(files, NULL);
-        // Tids
-        free(tids);
-        // Elimino il socket
-        unlink(config.socket_name);
-
-        // Esco      
+        
         pthread_exit(NULL);
     }
-
-    pthread_exit(NULL);
 }
 
 void clean_everything()

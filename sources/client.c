@@ -343,7 +343,7 @@ int execute_requests(ClientConfig config, List* requests)
                 if (readNFiles(to_read, config.read_dir) != 0)
                 {
                     if (must_print)
-                        printf(", fallita\n", to_read);        
+                        printf(", fallita\n");        
                     fprintf(stderr, "Impossibile leggere i file.(%d).\n", errno);
                 }
                 else

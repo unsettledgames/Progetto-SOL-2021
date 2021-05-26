@@ -5,7 +5,7 @@ SHELL := /bin/bash
 
 # Opzioni di compilazione
 CC = gcc
-GENERIC_FLAGS = -Wall -pedantic -lpthread -g 
+GENERIC_FLAGS = -Wall -pedantic -lpthread -g #-fsanitize=thread -fno-omit-frame-pointer
 THREAD_FLAGS = -lpthread
 INCLUDES = -I./headers
 
@@ -68,8 +68,12 @@ $(O_FOLDER)/utility.o:
 	$(CC) $(INCLUDES) sources/utility/utility.c -c -fPIC -o $@
 
 # Make dei test, che hanno bisogno sia del client che del server
-#test1: client server
-#	echo 'Eseguo il test 1'
+test1: client server
+	echo "Esecuzione del test 1"; \
+	./server config.txt & echo $$! > serverid.pid & sleep 2s; \
+	kill -2 $$(cat serverid.pid); \
+	./stats.sh
+	
 #test2: client server
 #	echo 'Eseguo il test 2'
 #Compilazione delle dipendenze del client: hanno bisogno dei sorgenti
