@@ -202,12 +202,36 @@ void* worker(void* args)
                 }
                 else if ((request.flags >> O_CREATE) & 1)
                 {
+                    LOCK(&allocated_space_mutex);
                     while (files.curr_size > config.max_files)
                     {
+                        log_info("Chiamato algoritmo di rimpiazzamento\n\t(Spazio: %d / %d)\n\t(N files: %d / %d)", 
+                            allocated_space, config.tot_space, files.curr_size, config.max_files);
+                        log_info("[LRU] called");
+                        // Calcolo il path del file da rimuovere
+                        char* to_remove = get_LRU(request.path);
+                        
+                        // Se la LRU ha ritornato qualcosa, allora rimuovo quel file
+                        if (to_remove != NULL)
+                        {
+                            log_info("Rimuovo il file %s", to_remove);
+                            // Salvo il file perché la remove dealloca i dati
+                            // Aggiorno lo spazio e rimuovo il file
+                            allocated_space -= ((File*)hashmap_get(files, to_remove))->content_size;                            
+                            if (hashmap_remove(&files, to_remove) != OK)
+                                perror("Impossibile rimuovere il file");
 
+                            free(to_remove);
+                        }
+                        // Altrimenti ho fallito e non posso aggiungere il file
+                        else
+                            to_send = LRU_FAILURE;
                     }
-                    
-                    int err;
+                    UNLOCK(&allocated_space_mutex);
+
+                    int err = to_send;
+                    if (err < 0)
+                        SERVER_OP(writen(request.client_descriptor, &to_send, sizeof(to_send)), break);
                     // Il file non esisteva, allora lo aggiungo
                     // Preparo il file da aprire
                     File* to_open = my_malloc(sizeof(File));
