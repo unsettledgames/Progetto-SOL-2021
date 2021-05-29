@@ -167,10 +167,11 @@ int execute_requests(ClientConfig config, List* requests)
                             printf(", avvenuta con successo (scritti %d bytes)\n", get_file_size(args[i], MAX_FILE_SIZE));
                     }
 
-                    if (closeFile(args[i]) != OK)
+                    int err3 = closeFile(args[i]);
+                    if (err3 != OK)
                     {
                         if (must_print)
-                            printf(", avvenuta con successo, chiusura fallita\n");
+                            printf("chiusura fallita (%d)\n", err3);
                         fprintf(stderr, "Impossibile chiudere il file (errore %d)\n", errno);
                         i++;
                         continue;

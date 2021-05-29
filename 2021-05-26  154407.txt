@@ -1,6 +1,0 @@
-15:44:07 | -> Configurazione del server acquisita correttamente
-15:44:07 | -> [NTH] 1
-15:44:07 | -> Inizializzato dispatcher delle richieste
-Attendo il sighandler
-15:44:07 | -> Inizializzazione dell'handler delle connessioni
-15:44:07 | -> Inizializzazione del dispatcher

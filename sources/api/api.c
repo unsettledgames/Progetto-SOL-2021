@@ -266,7 +266,7 @@ int writeFile(const char* pathname, const char* dirname)
 
     if (n_expelled < 0)
     {
-        fprintf(stderr, "Errore lato server nell'invio dei file espulsi.\n");
+        fprintf(stderr, "Errore lato server nell'invio dei file espulsi. (%d)\n", n_expelled);
         return n_expelled;
     }
     // Gestisco i file espulsi

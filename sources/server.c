@@ -202,6 +202,11 @@ void* worker(void* args)
                 }
                 else if ((request.flags >> O_CREATE) & 1)
                 {
+                    while (files.curr_size > config.max_files)
+                    {
+
+                    }
+                    
                     int err;
                     // Il file non esisteva, allora lo aggiungo
                     // Preparo il file da aprire
@@ -417,7 +422,7 @@ void* worker(void* args)
                                 to_send = FILE_TOO_BIG;
                             
                             LOCK(&files_mutex);
-                            if (files.curr_size == config.max_files)
+                            if (files.curr_size > config.max_files)
                                 to_send = FILE_AMOUNT_LIMIT;
                             UNLOCK(&files_mutex);
                         }
@@ -436,6 +441,7 @@ void* worker(void* args)
                     UNLOCK(&files_mutex);
                 }
 
+                log_info("Esito LRU: %d", to_send);
                 // Invio to_send al client
                 SERVER_OP(writen(request.client_descriptor, &to_send, sizeof(int)), sec_close_connection(request.client_descriptor));
 
@@ -607,6 +613,7 @@ void* worker(void* args)
                 }
                 else
                 {
+                    log_info("File da chiudere non trovato\n");
                     to_send = FILE_NOT_FOUND;
                     UNLOCK(&files_mutex);
                 }
@@ -1158,6 +1165,7 @@ void* sighandler(void* param)
             printf("finite stats\n");
         }
         
+        printf("Server terminato\n");
         pthread_exit(NULL);
     }
 }

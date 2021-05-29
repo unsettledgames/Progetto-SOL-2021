@@ -69,16 +69,10 @@ $(O_FOLDER)/utility.o:
 
 # Make dei test, che hanno bisogno sia del client che del server
 test1: client server
-	@echo "Esecuzione del test 1"; \
-	echo -e "1\n128000000\n10000\nLSOfilestorage.sk\nLogs" > config.txt; \
-	valgrind --leak-check=full ./server config.txt & echo $$! > serverid.pid & sleep 2s; \
-	./client -f LSOfilestorage.sk -W TestDir/img0.jpg -p; \
-	./client -f LSOfilestorage.sk -w TestDir/1.0/ -p; \
-	./client -f LSOfilestorage.sk -r TestDir/1.0/file0.txt -d ReadFolder -p; \
-	./client -f LSOfilestorage.sk -R2 -d ReadFolder -p; \
-	./client -f LSOfilestorage.sk -R AllRead -p; \
-	kill -SIGHUP $$(cat serverid.pid); \
-	./stats.sh
+	./scripts/test1.sh
+
+test2: client server
+	./scripts/test2.sh
 	
 #test2: client server
 #	echo 'Eseguo il test 2'
