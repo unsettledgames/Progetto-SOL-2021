@@ -435,12 +435,12 @@ int send_from_dir(const char* dirpath, int* n_files, const char* write_dir)
                     if (strcmp(file->d_name, ".") != 0 && strcmp(file->d_name, "..") != 0)
                     {
                         // Aggiungo il nome del file corrente 
-                        char filename[PATH_MAX];
+                        char filename[MAX_PATH_LENGTH];
                         
                         int dir_len = strlen(dirpath);
                         int file_len = strlen(file->d_name);
                         
-                        if ((dir_len + file_len + 2) > PATH_MAX) 
+                        if ((dir_len + file_len + 2) > MAX_PATH_LENGTH) 
                         {
                             fprintf(stderr, "Path del file da spedire troppo lungo\n");
                             errno = FILESYSTEM_ERROR;
@@ -448,9 +448,9 @@ int send_from_dir(const char* dirpath, int* n_files, const char* write_dir)
                         }
                         
                         // Aggiungo il nome del file al percorso corrente
-                        strncpy(filename, dirpath, PATH_MAX - 1);
-                        strncat(filename, "/", PATH_MAX - 1);
-                        strncat(filename, file->d_name, PATH_MAX - 1);
+                        strncpy(filename, dirpath, MAX_PATH_LENGTH - 1);
+                        strncat(filename, "/", MAX_PATH_LENGTH - 1);
+                        strncat(filename, file->d_name, MAX_PATH_LENGTH - 1);
                         
                         // Richiamo la funzione sul nuovo percorso
                         send_from_dir(filename, n_files, write_dir);
@@ -467,7 +467,7 @@ int send_from_dir(const char* dirpath, int* n_files, const char* write_dir)
         else if (S_ISREG(dir_info.st_mode))
         {
             // Ottengo il path completo
-            char full_path[PATH_MAX];
+            char full_path[MAX_PATH_LENGTH];
             
             realpath(dirpath, full_path);
             // Provo ad aprire il file
