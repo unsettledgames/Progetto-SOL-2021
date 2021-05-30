@@ -5,7 +5,7 @@ SHELL := /bin/bash
 
 # Opzioni di compilazione
 CC = gcc
-GENERIC_FLAGS = -Wall -pedantic -std=gnu99 -lpthread -g #-fsanitize=thread -fno-omit-frame-pointer
+GENERIC_FLAGS = -Wall -pedantic -std=gnu99 -pthread -g #-fsanitize=thread -fno-omit-frame-pointer
 THREAD_FLAGS = -lpthread
 INCLUDES = -I./headers
 
