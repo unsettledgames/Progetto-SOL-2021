@@ -13,7 +13,7 @@ sleep 1s
 ./client -f LSOfilestorage.sk -R2 -d ReadFolder -p
 ./client -f LSOfilestorage.sk -R AllRead -p
 
-echo "PID: $pid"
 sleep 1s
 
-kill -s SIGINT $pid
+kill -s SIGHUP $pid
+./scripts/stats.sh
