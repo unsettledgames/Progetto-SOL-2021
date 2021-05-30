@@ -38,6 +38,7 @@
 #define LRU_FAILURE             -302
 #define FILE_TOO_BIG            -303
 #define FILE_AMOUNT_LIMIT       -304
+#define COULDNT_CREATE_LOG      -305
 
 // UTILITY errors
 

@@ -812,6 +812,7 @@ void* connession_handler(void* args)
         // Attendo una richiesta di connessione
         if ((client_fd = accept(socket_desc, &client_info, &client_addr_length)) > 0)
         {
+            log_info("Client: %d, mine: %d", client_fd, socket_desc);
             log_info("Ricevuta richiesta di connessione dal client %d", client_fd);
             // Rialloco così i dati puntano a una locazione differente
             to_add = my_malloc(sizeof(int));
@@ -886,15 +887,8 @@ int create_log()
     log_file = fopen(log_path, "w");
     // Se log_file non è NULL, sposto stdout sul log_file così nel caso sia stato impossibile avere un file
     // di log, le informazioni vengono almeno stampate a schermo sul server
-    if (log_file != NULL)
-    {
-        int log_fd;
-        int err;
-
-        SYSCALL_RETURN("fileno", log_fd, fileno(log_file), "Impossibile ricavare l'fd del file di log\n", "");
-        SYSCALL_RETURN("dup2", err, dup2(log_fd, 1), "Impossibile redirigere stdout sul file di log\n", "");
-    }
-
+    if (log_file == NULL)
+        return COULDNT_CREATE_LOG;
     return 0;
 }
 
@@ -1112,7 +1106,11 @@ void* sighandler(void* param)
                 memset(&address, 0, sizeof(address));
                 strncpy(address.sun_path, config.socket_name, strlen(config.socket_name));
                 address.sun_family = AF_UNIX;
-                connect(socket_fd, (struct sockaddr*) &address, sizeof(address));
+                if (connect(socket_fd, (struct sockaddr*) &address, sizeof(address)) < 0)
+                {
+                    perror("Impossibile inviare la richiesta di terminazione.");
+                    pthread_exit(NULL);
+                }
 
                 // Aspetto che il master finisca
                 THREAD_JOIN(connession_handler_tid, NULL);
@@ -1139,7 +1137,11 @@ void* sighandler(void* param)
                 memset(&address, 0, sizeof(address));
                 strncpy(address.sun_path, config.socket_name, strlen(config.socket_name));
                 address.sun_family = AF_UNIX;
-                connect(socket_fd, (struct sockaddr*) &address, sizeof(address));
+                if (connect(socket_fd, (struct sockaddr*) &address, sizeof(address)) < 0)
+                {
+                    perror("Impossibile spedire richiesta di terminazione");
+                    pthread_exit(NULL);
+                }
 
                 THREAD_JOIN(connession_handler_tid, NULL);
 
@@ -1173,20 +1175,23 @@ void* sighandler(void* param)
                 // Aspetto che il dispatcher finisca
                 THREAD_JOIN(dispatcher_tid, NULL);
             }
-
+            system("echo 1");
+            if (log_file != NULL)
+                fflush(log_file);
             // Pulisco tutte le strutture dati
             fclose(log_file);
+            system("echo 2");
             // Lista dei client
             list_clean(client_fds, NULL);
+            system("echo 3");
             // Tabella dei file
             hashmap_clean(files, NULL);
+            system("echo 4");
             // Tids
             free(tids);
+            system("./scripts/stats.sh");
             // Elimino il socket
             unlink(config.socket_name);
-
-            // Stampo le statistiche
-            printf("finite stats\n");
         }
         
         printf("Server terminato\n");
@@ -1240,11 +1245,14 @@ void log_info(const char* fmt, ...)
     
     LOCK(&log_mutex);
 
-    // Converto il timestamp attuale in formato leggibile 
-    strftime(str_time, MAX_TIME_LENGTH, "%H:%M:%S", time_info);
-    // Scrivo nel file di log
-    printf("%s | -> %s\n", str_time, buf);
-    fflush(stdout);
+    if (log_file != NULL)
+    {
+        // Converto il timestamp attuale in formato leggibile 
+        strftime(str_time, MAX_TIME_LENGTH, "%H:%M:%S", time_info);
+        // Scrivo nel file di log
+        fprintf(log_file, "%s | -> %s\n", str_time, buf);
+        fflush(stdout);
+    }
 
     UNLOCK(&log_mutex);
 }
