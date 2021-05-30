@@ -11,5 +11,8 @@ sleep 1s
 ./client -f LSOfilestorage.sk -r TestDir/1.0/file0.txt -d ReadFolder -p
 ./client -f LSOfilestorage.sk -R2 -d ReadFolder -p
 ./client -f LSOfilestorage.sk -R AllRead -p
+
+sleep 1s
+
 kill -SIGHUP $pid
 ./scripts/stats.sh
