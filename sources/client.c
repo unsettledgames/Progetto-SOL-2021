@@ -150,6 +150,7 @@ void execute_requests(ClientConfig config, List* requests)
                     {
                         if (must_print)
                             printf(", apertura fallita\n");
+                        fprintf(stderr, "Err: %d\n", err);
                         fprintf(stderr, "Impossibile scrivere il file %s, operazione annullata (errore %d).\n", args[i], errno);
                         i++;
                         continue;

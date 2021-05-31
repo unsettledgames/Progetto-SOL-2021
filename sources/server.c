@@ -205,7 +205,8 @@ void* worker(void* args)
                     log_info("File aperto con successo.");
                     log_info("[OP] open");
                 }
-                else if ((request.flags >> O_CREATE) & 1)
+                // Controllo che O_CREATE sia settato e che il file non sia già stato creato
+                else if ((request.flags >> O_CREATE) & 1 && !hashmap_has_key(files, request.path))
                 {
                     LOCK(&allocated_space_mutex);
                     while (files.curr_size > config.max_files)

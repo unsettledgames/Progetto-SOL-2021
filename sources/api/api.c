@@ -170,12 +170,13 @@ int openFile(const char* pathname, int flags)
 
     to_send.flags = flags;
     to_send.op_code = OPENFILE;
+
+    printf("Invio richiesta\n");
     
     SYSCALL_RETURN("writen", n_written, writen(socket_fd, &to_send, sizeof(to_send)), 
         "Impossibile inviare la richiesta di apertura", "");
     SYSCALL_RETURN("readn", n_read, readn(socket_fd, &reply, sizeof(reply)), 
         "Impossibile ricevere l'esito della richiesta di apertura", "");
-
     return reply;
 }
 
