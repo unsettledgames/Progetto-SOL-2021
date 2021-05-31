@@ -19,6 +19,10 @@ if [ -d "Logs" ]; then
     echo "Log filename: ${log_file}"
 
     if [ log_file != '' ]; then
+        # Rimuovo elementi inutili e le date
+        log_content=$(cat "${log_file}" | cut -c 15- | grep -e '\[')
+        echo "$log_content" > tmp_log
+
         # Conto le occorrenze di [RD] per contare le letture
         tot_read=$(grep -o -i "\[RD\]" "${log_file}" | wc -l)
         # Conto le occorrenze di [WT] per contare le scritture
@@ -31,28 +35,27 @@ if [ -d "Logs" ]; then
         tot_LRU=$(grep -o -i "\[LRU\]" "${log_file}" | wc -l)
 
         # Ciclo tra le linee che contengono [WT], tenendo solo i numeri che seguono [WT]
-        for i in $(grep -e '\[WT\]' "${log_file}" | cut -c 6- ); do
+        for i in $(grep -e "\[WT\]" tmp_log | cut -c 6- ); do
             written_bytes=$written_bytes+$i;
         done
         # Passo la stringa risultante a bc per ottenere la somma
         written_bytes=$(bc <<< ${written_bytes})
 
         # Stesso processo per i byte letti
-        for i in $(grep -e '\[RD\]' "${log_file}" | cut -c 6- ); do
+        for i in $(grep -e "\[RD\]" tmp_log | cut -c 6- ); do
             read_bytes=$read_bytes+$i;
         done
-        echo "Read bytes: $written_bytes"
         read_bytes=$(bc <<< ${read_bytes})
 
         # Prendo i dati che cominciano con [SIZE], li metto in ordine decrescente, prendo il primo ed è il massimo
-        max_size=$(grep -e '\[SIZE\]' "${log_file}" | cut -c 8- | sort -r | head -1)
+        max_size=$(grep -e "\[SIZE\]" tmp_log | cut -c 8- | sort -r | head -1)
         # Stesso concetto per il numero massimo di files
-        max_files=$(grep -e '\[NFILES\]' "${log_file}" | cut -c 10- | sort -r | head -1)
+        max_files=$(grep -e '\[NFILES\]' tmp_log | cut -c 10- | sort -r | head -1)
         # Stesso concetto per il numero massimo di connessioni
-        max_conn=$(grep -e '\[CN\]' "${log_file}" | cut -c 6- | sort -r | head -1)
+        max_conn=$(grep -e '\[CN\]' tmp_log | cut -c 6- | sort -r | head -1)
 
         # Ora, prendo il numero di workers
-        n_threads=$(grep -e '\[NTH\]' <<< "${log_file}" | cut -c 7- )
+        n_threads=$(grep -e '\[NTH\]' tmp_log | cut -c 7- )
         n_threads=$(bc <<< "${n_threads}-1")
 
         # Per ogni numero di thread, conto il numero di richieste (occorrenze di "[RQ] tid")
@@ -85,6 +88,8 @@ if [ -d "Logs" ]; then
             echo "Bytes scritti in media:"
             echo "scale=2; ${written_bytes} / ${tot_write}" | bc -l
         fi
+
+        rm tmp_log
 
     else
         echo "Non e' stato ancora eseguito il programma"
