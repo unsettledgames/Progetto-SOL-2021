@@ -19,15 +19,19 @@ if [ -d "Logs" ]; then
     echo "Log filename: ${log_file}"
 
     if [ log_file != '' ]; then
+        echo "Ci sono"
         # Rimuovo elementi inutili e le date
         log_content=$(cat "${log_file}" | cut -c 15- | grep -e '\[')
 
         # Conto le occorrenze di [RD] per contare le letture
         tot_read=$(grep -o -i "\[RD\]" "${log_file}" | wc -l)
+        echo "Dopo primo grep"
         # Conto le occorrenze di [WT] per contare le scritture
         tot_write=$(grep -o -i "\[WT\]" "${log_file}" | wc -l)
+        echo "Dopo secondo grep"
         # Conto le occorrenze di [OP] per contare le aperture
         tot_open=$(grep -o -i "\[OP\]" "${log_file}" | wc -l)
+        echo "Dopo terzo grep"
         # Conto le occorrenze di [CL] per contare le chiusure
         tot_close=$(grep -o -i "\[CL\]" "${log_file}" | wc -l)
         # Conto le occorrenze di [LRU] per contare i rimpiazzi
@@ -57,9 +61,6 @@ if [ -d "Logs" ]; then
         n_threads=$(grep -e '\[NTH\]' <<< ${log_content} | cut -c 7- )
         n_threads=$(echo "${n_threads}-1" | bc)
 
-        echo "N threads: $n_threads"
-        echo "Sas"
-        eval echo {0..$n_threads}
         # Per ogni numero di thread, conto il numero di richieste (occorrenze di "[RQ] tid")
         thread_rq=()
         for i in $( eval echo {0..${n_threads}} ); do
