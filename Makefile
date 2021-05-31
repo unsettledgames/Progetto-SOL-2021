@@ -73,6 +73,9 @@ test1: client server
 
 test2: client server
 	./scripts/test2.sh
+
+test3: client server
+	./scripts/test3.sh
 	
 #test2: client server
 #	echo 'Eseguo il test 2'

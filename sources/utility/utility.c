@@ -2,20 +2,12 @@
 
 int get_file_size(char* path, int max_size)
 {
-    FILE* f = fopen(path, "rb");
-    char* buf = malloc(max_size);
-    int read;
+    struct stat st; 
 
-    if (f != NULL)
-    {
-        read = fread(buf, sizeof(char), max_size, f);
-        fclose(f);
-    }
-    else
-        read = -1;
-    
-    free(buf);
-    return read;
+    if (stat(path, &st) == 0)
+        return st.st_size;
+
+    return -1;
 }
 
 int string_to_int(char* string, int positive_constraint)
