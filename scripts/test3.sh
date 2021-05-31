@@ -2,11 +2,16 @@ echo "Esecuzione del test 3"
 echo -e "8\n32000000\n100\nLSOfilestorage.sk\nLogs" > config.txt
 
 current_date=$(date +%s)
-stop_date=$(echo "$current_date + 60" | bc)
+stop_date=$(echo "$current_date + 3" | bc)
 
 pids=()
-./server config.txt &
+# Creo una subshell
+{ ./server config.txt; } &
+# Ottengo il pid della shell corrente
 server_pid=$!
+# Ottengo il pid della subshell creata, cioè il pid il cui parent è server_pid (questa shell)
+server_pid=$(ps -ax -o ppid,pid --no-headers | sed -r 's/^ +//g;s/ +/ /g' |
+                           grep "^$server_pid " | cut -f 2 -d " ")
 
 file_index=1
 folder_index=1
@@ -24,7 +29,6 @@ while [ $(date +%s) -lt $stop_date ]; do
             file_index=$(($file_index + 5))
 
             if (($file_index > 15)); then 
-                echo "Resetto"
                 file_index=1;
                 folder_index=$(( ($folder_index + 1) % 15 ))
 
@@ -32,13 +36,10 @@ while [ $(date +%s) -lt $stop_date ]; do
                     $folder_index=1
                 fi
             fi
-
-            echo "File index: $file_index"
-            echo "Folder index: $folder_index"
-
         fi
     done
 done
 
-kill -s SIGHUP $server_pid
+kill -s SIGINT $server_pid
+wait
 echo 'finished'
