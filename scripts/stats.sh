@@ -56,9 +56,13 @@ if [ -d "Logs" ]; then
         # Ora, prendo il numero di workers
         n_threads=$(grep -e '\[NTH\]' <<< ${log_content} | cut -c 7- )
         n_threads=$(echo "${n_threads}-1" | bc)
+
+        echo "N threads: $n_threads"
+        echo "Sas"
+        eval echo {0..$n_threads}
         # Per ogni numero di thread, conto il numero di richieste (occorrenze di "[RQ] tid")
         thread_rq=()
-        for ((i=0; i<=${n_threads}; i+=1)); do
+        for i in $( eval echo {0..${n_threads}} ); do
             thread_rq[$i]=$(grep -o -i "\[RQ\] $i" "${log_file}" | wc -l)
         done
         
@@ -73,7 +77,7 @@ if [ -d "Logs" ]; then
         echo "Massimo numero di file: ${max_files}"
         echo "Massimo numero di connessioni contemporanee: ${max_conn}"
         echo "Numero di richieste soddisfatte per thread:"
-        for (( i=0; i<=${n_threads}; i+=1 )); do
+        for i in $( eval echo {0..${n_threads}} ); do
             echo "Worker $i: ${thread_rq[$i]}"
         done
 
