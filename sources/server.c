@@ -1172,7 +1172,7 @@ void* sighandler(void* param)
                 // Giro a vuoto per aspettare che si sconnettano
                 LOCK(&client_fds_lock);
             }
-            UNLOCK(&files_mutex);
+            UNLOCK(&client_fds_lock);
 
             // Sveglio i worker per farli terminare
             for (int i=0; i<config.n_workers; i++)
