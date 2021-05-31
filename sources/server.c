@@ -4,7 +4,7 @@
 int tid = 0;
 
 // Uscita dal programma
-int must_stop = 0;
+volatile sig_atomic_t must_stop = 0;
 
 // File di log con la sua lock
 FILE* log_file = NULL;
@@ -823,6 +823,10 @@ void* connession_handler(void* args)
         // Attendo una richiesta di connessione
         if ((client_fd = accept(socket_desc, &client_info, &client_addr_length)) > 0)
         {
+            // Se era una finta richiesta, esco
+            if (must_stop)
+                pthread_exit(NULL);
+
             log_info("Client: %d, mine: %d", client_fd, socket_desc);
             log_info("Ricevuta richiesta di connessione dal client %d", client_fd);
             // Rialloco così i dati puntano a una locazione differente
@@ -1089,131 +1093,129 @@ void print_file_node(Node* to_print)
 void* sighandler(void* param)
 {
     int signal = -1;
-    while (TRUE)
+
+    while (!must_stop)
     {
         sigwait(&mask, &signal);
 
-        if (!must_stop)
+        // Segnalo che ho terminato
+        must_stop = TRUE;
+
+        if (signal == SIGINT || signal == SIGQUIT)
         {
-            // Segnalo che ho terminato
-            must_stop = TRUE;
-
-            if (signal == SIGINT || signal == SIGQUIT)
+            // Creo le statistiche
+            // Chiudo tutte le connessioni
+            Node* curr = client_fds.head;
+            while (curr != NULL)
             {
-                // Creo le statistiche
-                // Chiudo tutte le connessioni
-                Node* curr = client_fds.head;
-                while (curr != NULL)
-                {
-                    close(*((int*)curr->data));
-                    curr = curr->next;
-                }
-                // Coda richieste
-                list_clean(requests, NULL);
-
-                // Aspetto che il dispatcher finisca
-                THREAD_JOIN(dispatcher_tid, NULL);
-
-                // Mando una finta connessione per sbloccare il gestore delle connessioni
-                int socket_fd;
-                socket_fd = socket(AF_UNIX, SOCK_STREAM, 0);
-                // Indirizzo del socket
-                struct sockaddr_un address;
-                memset(&address, 0, sizeof(address));
-                strncpy(address.sun_path, config.socket_name, strlen(config.socket_name));
-                address.sun_family = AF_UNIX;
-                if (connect(socket_fd, (struct sockaddr*) &address, sizeof(address)) < 0)
-                {
-                    perror("Impossibile inviare la richiesta di terminazione.");
-                    pthread_exit(NULL);
-                }
-
-                // Aspetto che l'handler finisca
-                THREAD_JOIN(connession_handler_tid, NULL);
-                // Risveglio tutti i worker
-                pthread_cond_broadcast(&queue_not_empty);
-
-                // Aspetto che i worker finiscano
-                for (int i=0; i<config.n_workers; i++)
-                {
-                    THREAD_JOIN(tids[i], NULL);
-                }
+                close(*((int*)curr->data));
+                curr = curr->next;
             }
-            else
+            // Coda richieste
+            list_clean(requests, NULL);
+
+            // Aspetto che il dispatcher finisca
+            THREAD_JOIN(dispatcher_tid, NULL);
+
+            // Mando una finta connessione per sbloccare il gestore delle connessioni
+            int socket_fd;
+            socket_fd = socket(AF_UNIX, SOCK_STREAM, 0);
+            // Indirizzo del socket
+            struct sockaddr_un address;
+            memset(&address, 0, sizeof(address));
+            strncpy(address.sun_path, config.socket_name, strlen(config.socket_name));
+            address.sun_family = AF_UNIX;
+            if (connect(socket_fd, (struct sockaddr*) &address, sizeof(address)) < 0)
             {
-                // SIGHUP
-                // Evito di ricevere nuove connessioni
-                // Mando una finta connessione per sbloccare il gestore delle connessioni e farlo terminare
-                int socket_fd;
-                socket_fd = socket(AF_UNIX, SOCK_STREAM, 0);
-                // Indirizzo del socket
-                struct sockaddr_un address;
-                memset(&address, 0, sizeof(address));
-                strncpy(address.sun_path, config.socket_name, strlen(config.socket_name));
-                address.sun_family = AF_UNIX;
-
-                if (connect(socket_fd, (struct sockaddr*) &address, sizeof(address)) < 0)
-                {
-                    perror("Impossibile spedire richiesta di terminazione");
-                    pthread_exit(NULL);
-                }
-
-                THREAD_JOIN(connession_handler_tid, NULL);
-
-                // Finché ho client
-                LOCK(&client_fds_lock);
-                while (client_fds.length > 1)
-                {
-                    // Sveglio thread
-                    UNLOCK(&client_fds_lock);
-                    // Giro a vuoto per aspettare che si sconnettano
-                    LOCK(&client_fds_lock);
-                }
-                UNLOCK(&files_mutex);
-
-                // Sveglio i worker per farli terminare
-                for (int i=0; i<config.n_workers; i++)
-                {
-                    SIGNAL(&queue_not_empty);
-                }
-
-                // Chiudo tutte le connessioni
-                Node* curr = client_fds.head;
-                while (curr != NULL)
-                {
-                    close(*((int*)curr->data));
-                    curr = curr->next;
-                }
-
-                // Coda richieste
-                list_clean(requests, NULL);
-
-                for (int i=0; i<config.n_workers; i++)
-                {
-                    THREAD_JOIN(tids[i], NULL);
-                }
-
-                // Aspetto che il dispatcher finisca
-                THREAD_JOIN(dispatcher_tid, NULL);
+                perror("Impossibile inviare la richiesta di terminazione.");
+                pthread_exit(NULL);
             }
-            if (log_file != NULL)
-                fflush(log_file);
-            // Pulisco tutte le strutture dati
-            fclose(log_file);
-            // Lista dei client
-            list_clean(client_fds, NULL);
-            // Tabella dei file
-            hashmap_clean(files, NULL);
-            // Tids
-            free(tids);
-            system("./scripts/stats.sh");
-            // Elimino il socket
-            unlink(config.socket_name);
+
+            // Aspetto che l'handler finisca
+            THREAD_JOIN(connession_handler_tid, NULL);
+            // Risveglio tutti i worker
+            pthread_cond_broadcast(&queue_not_empty);
+
+            // Aspetto che i worker finiscano
+            for (int i=0; i<config.n_workers; i++)
+            {
+                THREAD_JOIN(tids[i], NULL);
+            }
         }
-        
-        printf("Server terminato\n");
-        pthread_exit(NULL);
+        else
+        {
+            // SIGHUP
+            // Evito di ricevere nuove connessioni
+            // Mando una finta connessione per sbloccare il gestore delle connessioni e farlo terminare
+            int socket_fd;
+            socket_fd = socket(AF_UNIX, SOCK_STREAM, 0);
+            // Indirizzo del socket
+            struct sockaddr_un address;
+            memset(&address, 0, sizeof(address));
+            strncpy(address.sun_path, config.socket_name, strlen(config.socket_name));
+            address.sun_family = AF_UNIX;
+
+            if (connect(socket_fd, (struct sockaddr*) &address, sizeof(address)) < 0)
+            {
+                perror("Impossibile spedire richiesta di terminazione");
+                pthread_exit(NULL);
+            }
+
+            THREAD_JOIN(connession_handler_tid, NULL);
+
+            // Finché ho client
+            LOCK(&client_fds_lock);
+            while (client_fds.length > 1)
+            {
+                // Sveglio thread
+                UNLOCK(&client_fds_lock);
+                // Giro a vuoto per aspettare che si sconnettano
+                LOCK(&client_fds_lock);
+            }
+            UNLOCK(&files_mutex);
+
+            // Sveglio i worker per farli terminare
+            for (int i=0; i<config.n_workers; i++)
+            {
+                SIGNAL(&queue_not_empty);
+            }
+
+            // Chiudo tutte le connessioni
+            Node* curr = client_fds.head;
+            while (curr != NULL)
+            {
+                close(*((int*)curr->data));
+                curr = curr->next;
+            }
+
+            // Coda richieste
+            list_clean(requests, NULL);
+
+            for (int i=0; i<config.n_workers; i++)
+            {
+                THREAD_JOIN(tids[i], NULL);
+            }
+
+            // Aspetto che il dispatcher finisca
+            THREAD_JOIN(dispatcher_tid, NULL);
+        }
+        if (log_file != NULL)
+            fflush(log_file);
+        // Pulisco tutte le strutture dati
+        fclose(log_file);
+        // Lista dei client
+        list_clean(client_fds, NULL);
+        // Tabella dei file
+        hashmap_clean(files, NULL);
+        // Tids
+        free(tids);
+        system("./scripts/stats.sh");
+        // Elimino il socket
+        unlink(config.socket_name);
     }
+    
+    printf("Server terminato\n");
+    pthread_exit(NULL);
 }
 
 
