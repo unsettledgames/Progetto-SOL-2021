@@ -37,6 +37,7 @@ if [ -d "Logs" ]; then
         for i in $(grep -e '\[WT\]' <<< ${log_content} | cut -c 6- ); do
             written_bytes=$written_bytes+$i;
         done
+        echo "Written bytes: $written_bytes"
         # Passo la stringa risultante a bc per ottenere la somma
         written_bytes=$(bc <<< ${written_bytes})
 
@@ -44,6 +45,7 @@ if [ -d "Logs" ]; then
         for i in $(grep -e '\[RD\]' <<< ${log_content} | cut -c 6- ); do
             read_bytes=$read_bytes+$i;
         done
+        echo "Read bytes: $written_bytes"
         read_bytes=$(bc <<< ${read_bytes})
 
         # Prendo i dati che cominciano con [SIZE], li metto in ordine decrescente, prendo il primo ed è il massimo
