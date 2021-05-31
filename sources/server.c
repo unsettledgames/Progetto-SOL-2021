@@ -1214,7 +1214,6 @@ void* sighandler(void* param)
         }
         
         printf("Server terminato\n");
-        pthread_exit(NULL);
     }
 }
 
