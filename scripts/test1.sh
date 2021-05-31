@@ -3,10 +3,8 @@
 echo "Esecuzione del test 1"; 
 echo -e "1\n128000000\n10000\nLSOfilestorage.sk\nLogs" > config.txt
 
-./server config.txt &
+valgrind --leak-check=full ./server config.txt &
 pid=$!
-valgrind --leak-check=full $pid
-
 sleep 1s
 
 ./client -f LSOfilestorage.sk -W TestDir/img0.jpg -p
