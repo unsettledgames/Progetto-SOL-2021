@@ -14,3 +14,4 @@ done
 sleep 2s
 
 kill -s SIGHUP $pid
+wait $pid

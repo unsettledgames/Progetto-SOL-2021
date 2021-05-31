@@ -126,6 +126,8 @@ int main(int argc, char** argv)
 
         // Aspetto che il signal handler finisca
         THREAD_JOIN(sighandler_tid, NULL);
+        pthread_exit(NULL);
+        printf("impossibile\n");
     }
     else
     {
@@ -134,7 +136,7 @@ int main(int argc, char** argv)
         exit(CONFIG_FILE_ERROR);
     }
 
-    pthread_exit(NULL);
+    return 0;
 }
 
 
@@ -1157,7 +1159,7 @@ void* sighandler(void* param)
 
             if (connect(socket_fd, (struct sockaddr*) &address, sizeof(address)) < 0)
             {
-                perror("Impossibile spedire richiesta di terminazione");
+                fprintf(stderr, "Impossibile spedire richiesta di terminazione");
                 pthread_exit(NULL);
             }
 
@@ -1209,9 +1211,9 @@ void* sighandler(void* param)
         hashmap_clean(files, NULL);
         // Tids
         free(tids);
-        system("./scripts/stats.sh");
         // Elimino il socket
         unlink(config.socket_name);
+        system("./scripts/stats.sh");
     }
     
     printf("Server terminato\n");
