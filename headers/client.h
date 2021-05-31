@@ -43,9 +43,7 @@ int validate_input(Hashmap config, List requests);
 
 ClientConfig initialize_client(Hashmap config);
 
-int connect_to_server();
-
-int execute_requests(ClientConfig config, List* requests);
+void execute_requests(ClientConfig config, List* requests);
 
 char** parse_request_arguments(char* args);
 
