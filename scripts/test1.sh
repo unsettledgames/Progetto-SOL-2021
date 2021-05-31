@@ -15,5 +15,3 @@ sleep 1s
 sleep 1s
 
 kill -s SIGHUP $pid
-./scripts/stats.sh
-kill -s SIGKILL $pid

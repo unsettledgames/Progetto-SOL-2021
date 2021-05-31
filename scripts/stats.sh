@@ -48,11 +48,11 @@ if [ -d "Logs" ]; then
         read_bytes=$(bc <<< ${read_bytes})
 
         # Prendo i dati che cominciano con [SIZE], li metto in ordine decrescente, prendo il primo ed è il massimo
-        max_size=$(grep -e "\[SIZE\]" tmp_log | cut -c 8- | sort -r | head -1)
+        max_size=$(grep -e "\[SIZE\]" tmp_log | cut -c 8- | sort -r -n | head -1)
         # Stesso concetto per il numero massimo di files
-        max_files=$(grep -e '\[NFILES\]' tmp_log | cut -c 10- | sort -r | head -1)
+        max_files=$(grep -e '\[NFILES\]' tmp_log | cut -c 10- | sort -r -n | head -1)
         # Stesso concetto per il numero massimo di connessioni
-        max_conn=$(grep -e '\[CN\]' tmp_log | cut -c 6- | sort -r | head -1)
+        max_conn=$(grep -e '\[CN\]' tmp_log | cut -c 6- | sort -r -n | head -1)
 
         # Ora, prendo il numero di workers
         n_threads=$(grep -e '\[NTH\]' tmp_log | cut -c 7- )

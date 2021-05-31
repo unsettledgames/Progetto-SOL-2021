@@ -1131,8 +1131,6 @@ void* sighandler(void* param)
 
                 // Aspetto che il master finisca
                 THREAD_JOIN(connession_handler_tid, NULL);
-
-                printf("Aspetto\n");
                 // Risveglio tutti i worker
                 pthread_cond_broadcast(&queue_not_empty);
 
@@ -1154,6 +1152,7 @@ void* sighandler(void* param)
                 memset(&address, 0, sizeof(address));
                 strncpy(address.sun_path, config.socket_name, strlen(config.socket_name));
                 address.sun_family = AF_UNIX;
+
                 if (connect(socket_fd, (struct sockaddr*) &address, sizeof(address)) < 0)
                 {
                     perror("Impossibile spedire richiesta di terminazione");
@@ -1164,7 +1163,7 @@ void* sighandler(void* param)
 
                 // Finché ho client
                 LOCK(&client_fds_lock);
-                while (client_fds.length > 0)
+                while (client_fds.length > 1)
                 {
                     // Sveglio thread
                     UNLOCK(&client_fds_lock);
@@ -1214,6 +1213,7 @@ void* sighandler(void* param)
         }
         
         printf("Server terminato\n");
+        pthread_exit(NULL);
     }
 }
 
