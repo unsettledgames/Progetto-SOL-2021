@@ -59,9 +59,9 @@ int main(int argc, char** argv)
     // Maschero i segnali
     sigset_t oldmask;
     SYSCALL_EXIT("sigemptyset", err, sigemptyset(&mask), "Errore in sigemptyset", "");
+    SYSCALL_EXIT("sigaddset", err, sigaddset(&mask, SIGHUP), "Errore in sigaddset", "");
     SYSCALL_EXIT("sigaddset", err, sigaddset(&mask, SIGINT), "Errore in sigaddset", "");
     SYSCALL_EXIT("sigaddset", err, sigaddset(&mask, SIGQUIT), "Errore in sigaddset", "");
-    SYSCALL_EXIT("sigaddset", err, sigaddset(&mask, SIGHUP), "Errore in sigaddset", "");
 
     // Applico la maschera appena definita
     SYSCALL_EXIT("pthread_sigmask", err, pthread_sigmask(SIG_SETMASK, &mask, &oldmask), 
@@ -134,7 +134,7 @@ int main(int argc, char** argv)
         exit(CONFIG_FILE_ERROR);
     }
 
-    return 0;
+    pthread_exit(NULL);
 }
 
 
@@ -695,7 +695,7 @@ void* worker(void* args)
 
 void sec_close_connection(int fd)
 {
-    printf("Errore di lettura o scrittura, chiusura della connessione con il client %d\n", fd);
+    fprintf(stderr, "Errore di lettura o scrittura, chiusura della connessione con il client %d\n", fd);
     char to_remove[20];
     sprintf(to_remove, "%d", fd);
 
@@ -1089,7 +1089,6 @@ void print_file_node(Node* to_print)
 void* sighandler(void* param)
 {
     int signal = -1;
-    
     while (TRUE)
     {
         sigwait(&mask, &signal);
@@ -1129,7 +1128,7 @@ void* sighandler(void* param)
                     pthread_exit(NULL);
                 }
 
-                // Aspetto che il master finisca
+                // Aspetto che l'handler finisca
                 THREAD_JOIN(connession_handler_tid, NULL);
                 // Risveglio tutti i worker
                 pthread_cond_broadcast(&queue_not_empty);

@@ -3,7 +3,7 @@
 echo "Esecuzione del test 1"; 
 echo -e "1\n128000000\n10000\nLSOfilestorage.sk\nLogs" > config.txt
 
-valgrind --leak-check=full ./server config.txt &
+valgrind --leak-check=full --show-leak-kinds=all ./server config.txt &
 pid=$!
 sleep 1s
 
@@ -15,3 +15,4 @@ sleep 1s
 sleep 1s
 
 kill -s SIGHUP $pid
+

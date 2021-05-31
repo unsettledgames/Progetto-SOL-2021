@@ -10,7 +10,9 @@ pids=()
 while [ $(date +%s) -lt $stop_date ]; do
     for i in {1..10}; do
         if [ ! -z "$pids[$i]" ]; then
-            ./client -f LSOfilestorage.sk -W TestDir/lorem$i.txt -p -D ToWriteIn
+            files=
+            for i 
+            ./client -f LSOfilestorage.sk -W TestDir/BigTest$(echo $((1 + $RANDOM % 12)))/lorem$(echo $((1 + $RANDOM % 12))).txt -p -D ToWriteIn
             pids=( "${pids[@]:0:$i}" $! "${pids[@]:$i}" )
         fi
     done
