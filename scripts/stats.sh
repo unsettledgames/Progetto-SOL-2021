@@ -58,7 +58,7 @@ if [ -d "Logs" ]; then
         n_threads=$(echo "${n_threads}-1" | bc)
         # Per ogni numero di thread, conto il numero di richieste (occorrenze di "[RQ] tid")
         thread_rq=()
-        for (( i = 0 ; i <= ${n_threads} ; i += 2 )); do
+        for (( i = 0 ; i <= ${n_threads} ; i += 1 )); do
             thread_rq[$i]=$(grep -o -i "\[RQ\] $i" "${log_file}" | wc -l)
         done
         
@@ -73,7 +73,7 @@ if [ -d "Logs" ]; then
         echo "Massimo numero di file: ${max_files}"
         echo "Massimo numero di connessioni contemporanee: ${max_conn}"
         echo "Numero di richieste soddisfatte per thread:"
-        for i in $( eval echo {0..${n_threads}} ); do
+        for (( i = 0 ; i <= ${n_threads} ; i += 1 )); do
             echo "Worker $i: ${thread_rq[$i]}"
         done
 
