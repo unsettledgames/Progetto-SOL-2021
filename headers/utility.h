@@ -85,19 +85,78 @@
         }                                                               \
     }
 
+/**
+    \brief: Converte la stringa string in un intero: se positive_constraint, allora si verifica anche che
+            il numero convertito sia positivo.
+    
+    \param string: Stringa da convertire in intero.
+    \param positive_constraint: Indica se si deve verificare che il numero sia positivo o meno.
+
+    \return: Il numero convertito. In caso di errore, si modifica errno.
+*/
 int string_to_int(char* string, int positive_constraint);
 
+/**
+    \brief: Ritorna il path assoluto dato il path relativo.
+
+    \param relative_path: Path relativo da convertire in assoluto.
+    
+    \return: Il path assoluto corrispondente al path relativo passato come parametro.
+*/
 char* get_absolute_path(char* relative_path);
 
+/**
+    \brief: Wrapper per la malloc (si verifica che non restituisca errore), a cui si aggiunge anche una
+            memset dell'oggetto creato a 0 in modo da evitare scritture, letture o salti su campi non
+            inizializzati. Si esce immediatamente dal programma in caso la malloc fallisca (si assume che la
+            memoria sia corrotta e che sia quindi impossibile proseguire nell'esecuzione).
+    
+    \param size: Dimensione dell'area da allocare.
+*/
 void* my_malloc(size_t size);
 
+/**
+    \brief: Invia n bytes dell'oggetto puntato da ptr al socket con descrittore fd.
+
+    \param fd: Descrittore del socket a cui inviare i bytes.
+    \param ptr: Puntatore al buffer da inviare.
+    \param n: Numero di bytes da scrivere.
+
+    \return: Numero di bytes scritti, -1 in caso di errore.
+*/
 ssize_t writen(int fd, void *ptr, size_t n);
 
+/**
+    \brief: Legge n bytes nell'oggetto puntato da ptr dal socket con descrittore fd.
+
+    \param fd: Descrittore del socket da cui leggere i bytes.
+    \param ptr: Puntatore al buffer da usare per salvare i dati letti.
+    \param n: Numero di bytes da leggere.
+
+    \return: Numero di bytes letti, -1 in caso di errore.
+*/
 ssize_t readn(int fd, void *ptr, size_t n);
 
+/**
+    \brief: Sostituisce alla stringa str tutte le occorrenze di find, rimpiazzandole con replace.
+    
+    \param str: La stringa oggetto della sostituzione.
+    \param find: Il carattere da sostituire
+    \param replace: Il carattere che prenderà il posto di tutte le occorrenze di find.
+
+    \return: La stringa modificata.
+*/
 char* replace_char(char* str, char find, char replace);
 
+/**
+    \brief: Crea una cartella chiamata dirname se già non esiste nel file system.
+
+    \param dirname: Il nome della cartella da creare se non esiste.
+    
+    \return: 0 in caso di successo, CREATE_DIR_ERROR se non è stato possibile creare la cartella.
+*/
 int create_dir_if_not_exists(const char* dirname);
+
 
 static inline void print_error(const char * str, ...) 
 {

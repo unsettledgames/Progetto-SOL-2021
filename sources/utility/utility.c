@@ -104,23 +104,18 @@ char* replace_char(char* str, char find, char replace)
 
 int create_dir_if_not_exists(const char* dirname)
 {
-    if (dirname != NULL)
+    // Controllo che la cartella esista
+    errno = 0;
+    DIR* my_dir = opendir(dirname);
+
+    // Se non esiste la creo
+    if (!my_dir || (errno == ENOENT))
     {
-        // Controllo che la cartella esista
-        errno = 0;
-        DIR* my_dir = opendir(dirname);
-
-        // Se non esiste la creo
-        if (!my_dir || (errno == ENOENT))
-        {
-            if (mkdir(dirname, 0777) != 0)
-                return CREATE_DIR_ERROR;
-        }
-        else
-            closedir(my_dir);
-        
-        return OK;
+        if (mkdir(dirname, 0777) != 0)
+            return CREATE_DIR_ERROR;
     }
-
-    return NULL_PARAM;
+    else
+        closedir(my_dir);
+    
+    return OK;
 }

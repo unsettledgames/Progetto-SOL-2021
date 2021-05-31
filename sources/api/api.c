@@ -1,48 +1,17 @@
 #include "api.h"
 
-/**
-    PROTOCOLLO DI COMUNICAZIONE TRA CLIENT E SERVER
-
-    E' stata definita una struttura ClientRequest, che contiene i campi necessari alla corretta elaborazione delle
-    richieste. I campi hanno ovvia interpretazione, ma è interessante soffermarsi sul fatto che il campo
-    client_descriptor venga impostato in modo sensato solamente dal server al fine di differenziare le richieste
-    che riceve: il client imposta client_descriptor a un valore negativo così da denotare il fatto che tale
-    attributo è rimasto non inizializzato.
-
-    I vari tipi di errore sono definiti in api.h. Ove indicato, alcune APIs ritorneranno dei valori che potranno
-    essere interpretati e gestiti appropriatamente dai client.
-
-    E' stata definita un'enum Operations che indica quali sono i tipi di operazioni che il client è in grado di
-    gestire. In tal modo il server è in grado di differenziare le richieste da parte dei client.
-
-    openFile:   il client invia una richiesta formattata opportunamente. In particolare, op_code viene 
-                impostato a OPENFILE. Il server risponde con un solo int, che esprime il successo
-                o meno dell'operazione.
-
-    closeFile:  il client invia una richiesta formattata opportunamente e riceve dal server un solo unsigned int
-                che esprime il successo o meno dell'operazione.
-
-    readFile:   la funzione formatta una richiesta in modo opportuno (op_code = READFILE) e aspetta 
-                una risposta dal server.
-                
-                Il server invia per prima la dimensione della risposta, readFile invia un bit di acknowledgement
-                e il server procede a inviare il contenuto effettivo del file.
-                
-                Se la dimensione della risposta è un valore negativo, si è verificato un errore.
-
-    writeFile:  la funzione apre il file specificato dal client, occupandosi quindi di verificare la presenza
-                di eventuali errori e delegandone la gestione al client. Dopodiché, writeFile estrae il contenuto
-                dal file specificato e lo include in una ClientRequest che invia al server.
-
-                Il server risponde con un solo intero che rappresenta un codice di errore.
-
-    appendToFile: la funzione formatta una richiesta includendo nel campo "content" i dati da appendere al file.
-                Il server risponde con un solo intero che rappresenta un codice di errore.
-
-*/
-
+// Descrittore del socket usato per connettersi al server
 static int socket_fd;
 
+/**
+    \brief: Funzione che ritorna il "giusto" percorso di un file, ovvero se path è già un percorso assoluto, allora
+            viene semplicemente copiato in buffer. Altrimenti, se è un path relativo viene prima convertito in
+            path assoluto usando realpath.
+
+    \param path: Percorso del file da convertire.
+    \param buffer: Buffer usato per salvare il percorso corretto del file.
+    \param len: Lunghezza di buffer.
+*/
 static void get_right_path(const char* path, char* buffer, int len)
 {
     char* result = realpath(path, buffer);
@@ -51,12 +20,22 @@ static void get_right_path(const char* path, char* buffer, int len)
         memcpy(buffer, path, len);
 }
 
+/**
+    \brief: Funzione generica che si occupa di gestire i file espulsi o letti dal server. La funzione legge
+            to_read risposte dal server e se dirname != NULL, salva i contenuti ritornati nella cartella chiamata
+            dirname. handle_expelled_files si ferma non appena incontra un errore dal server, per evitare di 
+            bloccare il client in attesa di una lettura che non avverrà mai.
+    
+    \param to_read: Numero di risposte da attendere da parte del server.
+    \param dirname: Nome della cartella in cui salvare i contenuti dei file inviati dal server.
+*/
 static int handle_expelled_files(int to_read, const char* dirname)
 {
     int err = 0;
     char expelled_path[MAX_PATH_LENGTH + 20];
     char curr_path[MAX_PATH_LENGTH];
 
+    // Per indicare che sto salvando un file espulso, aggiungo una E all'inizio del nome del file.
     expelled_path[0] = 'E';
 
     getcwd(curr_path, MAX_PATH_LENGTH);
@@ -150,16 +129,13 @@ int openConnection(const char* sockname, int msec, const struct timespec abstime
 int closeConnection(const char* sockname)
 {
     ClientRequest to_send;
-    time_t timestamp;
     int reply;
     int n_written, n_read;
 
     errno = 0;
 
     memset(&to_send, 0, sizeof(to_send));
-    time(&timestamp);
     to_send.op_code = CLOSECONNECTION;
-    to_send.timestamp = timestamp;
 
     // Invio la richiesta
     SYSCALL_RETURN("writen", n_written, writen(socket_fd, &to_send, sizeof(to_send)), 
@@ -180,7 +156,6 @@ int openFile(const char* pathname, int flags)
     char path[MAX_PATH_LENGTH];
     // Richiesta
     ClientRequest to_send;
-    time_t timestamp;
     int reply = 0;
     int n_read, n_written;
 
@@ -188,15 +163,12 @@ int openFile(const char* pathname, int flags)
 
     // Ottengo il path corretto (relativo o assoluto)
     get_right_path(pathname, path, MAX_PATH_LENGTH);
-
     memset(&to_send, 0, sizeof(to_send));
-    time(&timestamp);
 
     memcpy(to_send.path, path, strlen(path) + 1);
     to_send.content_size = strlen(path);
 
     to_send.flags = flags;
-    to_send.timestamp = timestamp;
     to_send.op_code = OPENFILE;
     
     SYSCALL_RETURN("writen", n_written, writen(socket_fd, &to_send, sizeof(to_send)), 
@@ -212,17 +184,15 @@ int writeFile(const char* pathname, const char* dirname)
     // Numero di file espulsi dalla write
     int n_expelled = 0;
     // Buffer per il contenuto del file
-    char* write_buffer = my_malloc(sizeof(char) * MAX_FILE_SIZE);
-    // Timestamp
-    time_t timestamp;
     // return
     int ret = 0;
     // Path da utilizzare per l'invio
     char path[MAX_PATH_LENGTH];
+    // Buffer per il contenuto del file
+    char* write_buffer = my_malloc(sizeof(char) * MAX_FILE_SIZE);
     int n_read, n_written;
 
     errno = 0;
-    time(&timestamp);
 
     get_right_path(pathname, path, MAX_PATH_LENGTH);
     // Pulisco il buffer
@@ -255,7 +225,6 @@ int writeFile(const char* pathname, const char* dirname)
     memcpy(to_send.content, write_buffer, n_read);
     to_send.content_size = n_read;
     to_send.op_code = WRITEFILE;
-    to_send.timestamp = timestamp;
 
     // Invio i dati
     SYSCALL_RETURN("writen", n_written, writen(socket_fd, &to_send, sizeof(to_send)), 
@@ -279,8 +248,6 @@ int writeFile(const char* pathname, const char* dirname)
 
 int readFile(const char* pathname, void** buf, size_t* size)
 {
-    // Timestamp
-    time_t timestamp;
     // Creo la richiesta
     ClientRequest to_send;
     // Creo la risposta
@@ -294,9 +261,6 @@ int readFile(const char* pathname, void** buf, size_t* size)
     get_right_path(pathname, path, MAX_PATH_LENGTH);
 
     memset(&to_send, 0, sizeof(to_send));
-    time(&timestamp);
-
-    to_send.timestamp = timestamp;
     strcpy(to_send.path, path);
     to_send.op_code = READFILE;
 
@@ -321,8 +285,6 @@ int readFile(const char* pathname, void** buf, size_t* size)
 
 int readNFiles(int n, const char* dirname)
 {
-    // Timestamp
-    time_t timestamp;
     // Indica il numero di file che il server intende restituire
     int to_read;
     // Valore di ritorno
@@ -333,14 +295,11 @@ int readNFiles(int n, const char* dirname)
 
     // Richiesta del client
     ClientRequest request;
-
     memset(&request, 0, sizeof(request));
-    time(&timestamp);
 
     // Mando una richiesta
     request.flags = n;
     request.op_code = PARTIALREAD;
-    request.timestamp = timestamp;
 
     // Invio richiesta
     SYSCALL_RETURN("writen", n_written, writen(socket_fd, &request, sizeof(request)), 
@@ -367,7 +326,6 @@ int appendToFile(const char* pathname, void* buf, size_t size, const char* dirna
 {
     ClientRequest to_send;
     int reply;
-    time_t timestamp;
     // Path del file
     char path[MAX_PATH_LENGTH];
     int n_read, n_written;
@@ -377,14 +335,11 @@ int appendToFile(const char* pathname, void* buf, size_t size, const char* dirna
     get_right_path(pathname, path, MAX_PATH_LENGTH);
     memset(&to_send, 0, sizeof(to_send));
 
-    time(&timestamp);
-
     // Creo la richiesta di append
     to_send.op_code = APPENDTOFILE;
     strcpy(to_send.path, path);
     memcpy(to_send.content, buf, size);
     to_send.content_size = size;
-    to_send.timestamp = timestamp;
 
     // La invio
     SYSCALL_RETURN("writen", n_written, writen(socket_fd, &to_send, sizeof(to_send)),
@@ -408,8 +363,6 @@ int appendToFile(const char* pathname, void* buf, size_t size, const char* dirna
 
 int closeFile(const char* pathname)
 {
-    // Timestamp
-    time_t timestamp;
     // Richiesta
     ClientRequest to_send;
     // Risposta
@@ -421,10 +374,7 @@ int closeFile(const char* pathname)
     errno = 0;
 
     get_right_path(pathname, path, MAX_PATH_LENGTH);
-
     memset(&to_send, 0, sizeof(to_send));
-
-    time(&timestamp);
 
     to_send.op_code = CLOSEFILE;
     memcpy(to_send.path, path, strlen(path));
