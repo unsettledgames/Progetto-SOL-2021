@@ -19,7 +19,6 @@ if [ -d "Logs" ]; then
     echo "Log filename: ${log_file}"
 
     if [ log_file != '' ]; then
-        echo "Ci sono"
         # Rimuovo elementi inutili e le date
         log_content=$(cat "${log_file}" | cut -c 15- | grep -e '\[')
 
@@ -31,41 +30,32 @@ if [ -d "Logs" ]; then
         tot_open=$(grep -o -i "\[OP\]" "${log_file}" | wc -l)
         # Conto le occorrenze di [CL] per contare le chiusure
         tot_close=$(grep -o -i "\[CL\]" "${log_file}" | wc -l)
-        echo "grep CL"
         # Conto le occorrenze di [LRU] per contare i rimpiazzi
         tot_LRU=$(grep -o -i "\[LRU\]" "${log_file}" | wc -l)
-        echo "grep LRU"
 
         # Ciclo tra le linee che contengono [WT], tenendo solo i numeri che seguono [WT]
         for i in $(grep -e '\[WT\]' <<< ${log_content} | cut -c 6- ); do
             written_bytes=$written_bytes+$i;
         done
-        echo "grep written bytes"
         # Passo la stringa risultante a bc per ottenere la somma
-        written_bytes=$(echo ${written_bytes} | bc)
+        written_bytes=$(bc <<< ${written_bytes})
 
         # Stesso processo per i byte letti
         for i in $(grep -e '\[RD\]' <<< ${log_content} | cut -c 6- ); do
             read_bytes=$read_bytes+$i;
         done
-        echo "grep read bytes"
-        read_bytes=$(echo ${read_bytes} | bc)
+        read_bytes=$(bc <<< ${read_bytes})
 
         # Prendo i dati che cominciano con [SIZE], li metto in ordine decrescente, prendo il primo ed è il massimo
         max_size=$(grep -e '\[SIZE\]' <<< ${log_content} | cut -c 8- | sort -r | head -1)
-        echo "grep size"
         # Stesso concetto per il numero massimo di files
         max_files=$(grep -e '\[NFILES\]' <<< ${log_content} | cut -c 10- | sort -r | head -1)
-         echo "grep nfiles"
         # Stesso concetto per il numero massimo di connessioni
         max_conn=$(grep -e '\[CN\]' <<< ${log_content} | cut -c 6- | sort -r | head -1)
-         echo "grep maxconn"
 
         # Ora, prendo il numero di workers
         n_threads=$(grep -e '\[NTH\]' <<< ${log_content} | cut -c 7- )
-         echo "grep workers"
-        n_threads=$(echo "${n_threads}-1" | bc)
-         echo "echo nthreads "
+        n_threads=$(bc <<< "${n_threads}-1")
 
         # Per ogni numero di thread, conto il numero di richieste (occorrenze di "[RQ] tid")
         thread_rq=()
