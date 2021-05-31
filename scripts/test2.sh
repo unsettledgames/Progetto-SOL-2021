@@ -12,7 +12,7 @@ for i in {1..11}; do
 done
 
 sleep 2s
+
 kill -s SIGHUP $pid
 ./scripts/stats.sh
 kill -s SIGKILL $pid
-sleep 1s

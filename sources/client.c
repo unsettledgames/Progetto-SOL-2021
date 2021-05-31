@@ -307,7 +307,7 @@ void execute_requests(ClientConfig config, List* requests)
                                 perror("Impossibile aprire il file per scrivere il file letto");
                                 free(file_buffer);
                                 i++;
-                                chdir(config.read_dir);
+                                chdir(curr_path);
                                 continue;
                             }
                             if (fwrite(file_buffer, sizeof(char), n_to_read, file) <= 0) 
@@ -316,12 +316,12 @@ void execute_requests(ClientConfig config, List* requests)
                                 SYSCALL_EXIT("fclose", err, fclose(file), "Impossibile chiudere il file", "");
                                 free(file_buffer);
                                 i++;
-                                chdir(config.read_dir);
+                                chdir(curr_path);
                                 continue;
                             }
                             
                             SYSCALL_EXIT("fclose", err, fclose(file), "Impossibile chiudere il file", "");
-                            chdir(config.read_dir);
+                            chdir(curr_path);
                         }
                         else
                         {

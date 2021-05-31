@@ -1271,7 +1271,7 @@ void log_info(const char* fmt, ...)
         strftime(str_time, MAX_TIME_LENGTH, "%H:%M:%S", time_info);
         // Scrivo nel file di log
         fprintf(log_file, "%s | -> %s\n", str_time, buf);
-        fflush(stdout);
+        fflush(log_file);
     }
 
     UNLOCK(&log_mutex);
