@@ -5,7 +5,6 @@ Node* create_node(void* to_set, const char* key)
 {
     Node* node = my_malloc(sizeof(Node));
 
-    node->prev = NULL;
     node->next = NULL;
     node->data = to_set;
     node->key = key;
