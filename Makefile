@@ -21,6 +21,8 @@ API_FOLDER = sources/api
 client_deps = sources/client.c sources/utility/utility.c libs/libdata-structures.so libs/libapi.so
 server_deps = sources/server.c sources/utility/utility.c libs/libdata-structures.so libs/libapi.so libs/libz.so
 
+all: client server
+
 clean:
 
 	rm -f -rf build
@@ -33,7 +35,6 @@ clean:
 	mkdir build
 	mkdir build/obj
 
-all: client server
 
 # Compilazione del server
 server: $(server_deps)
