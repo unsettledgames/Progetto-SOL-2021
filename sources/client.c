@@ -167,7 +167,7 @@ void execute_requests(ClientConfig config, List* requests)
                     if (must_print)
                         printf("Provata scrittura del file %s", args[i]);
 
-                    if ((err = openFile(args[i], (1 << O_CREATE))) != 0)
+                    if ((err = openFile(args[i], (1 << O_CREATE))) < 0)
                     {
                         if (must_print)
                             printf(", apertura fallita\n");

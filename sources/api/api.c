@@ -142,7 +142,7 @@ int closeConnection(const char* sockname)
         "Impossibile terminare la connessione (writen)", "");
     // Ricevo la risposta
     SYSCALL_RETURN("readn", n_read, readn(socket_fd, &reply, sizeof(reply)), 
-        "Impossibile terminare la connessione (writen)", "");
+        "Impossibile terminare la connessione (readn)", "");
 
     // Chiudo il socket
     SYSCALL_RETURN("close", n_read, close(socket_fd), "Impossibile chiudere il socket", "");
@@ -205,6 +205,8 @@ int writeFile(const char* pathname, const char* dirname)
     if (to_read == NULL)
     {
         fprintf(stderr, "Errore nell'apertura del file da scrivere (errore %d)\n", errno);
+        fprintf(stderr, "Path: %s\n", path);
+        perror("APERTURA");
         free(write_buffer);
         return OPEN_FAILED;
     }

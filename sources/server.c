@@ -128,7 +128,6 @@ int main(int argc, char** argv)
         // Aspetto che il signal handler finisca
         THREAD_JOIN(sighandler_tid, NULL);
         pthread_exit(NULL);
-        printf("impossibile\n");
     }
     else
     {
@@ -247,7 +246,7 @@ void* worker(void* args)
                         // Infine aggiungo il file alla tabella
                         hashmap_put(&files, to_open, file_key);
 
-                        log_info("File creato e aperto con successo");
+                        log_info("File %s creato e aperto con successo", file_key);
                         log_info("[OP] open");
                     }
                 }    
@@ -255,6 +254,7 @@ void* worker(void* args)
                 {
                     to_send = INCONSISTENT_FLAGS;            
                     UNLOCK(&files_mutex);
+                    //printf("257 \n");
                     SERVER_OP(writen(request.client_descriptor, &to_send, sizeof(to_send)), break);
                 }
 
@@ -297,6 +297,7 @@ void* worker(void* args)
                 log_info("[RD] %ld", response.content_size);
 
                 // Invio la risposta al client
+                //printf("299 \n");
                 SERVER_OP(writen(request.client_descriptor, &response, sizeof(response)), sec_close_connection(request.client_descriptor));
                 break;
             case PARTIALREAD:;
@@ -315,6 +316,7 @@ void* worker(void* args)
                     log_info("Tentativo di leggere %d file", to_send);
 
                 // Indico al client quanti file sto per ritornare
+                //printf("317 \n");
                 SERVER_OP(writen(request.client_descriptor, &to_send, sizeof(to_send)), sec_close_connection(request.client_descriptor));
 
                 // Spedisco i file
@@ -338,6 +340,7 @@ void* worker(void* args)
                         }
                         
                         // Invio la risposta
+                        //printf("340 \n");
                         SERVER_OP(writen(request.client_descriptor, &response, sizeof(response)), sec_close_connection(request.client_descriptor));
                         log_info("File letto : %s, dimensione contenuto: %ld", response.path, response.content_size);
                         log_info("[RD] %ld",  response.content_size);
@@ -425,7 +428,10 @@ void* worker(void* args)
 
                 // In caso di errore non ho inviato file, quindi invio almeno il codice di errore
                 if (to_send < 0)
+                {
+                    //printf("428 \n");
                     SERVER_OP(writen(request.client_descriptor, &to_send, sizeof(to_send)), sec_close_connection(request.client_descriptor));
+                }
 
                 break;
             case APPENDTOFILE:;
@@ -480,8 +486,11 @@ void* worker(void* args)
                     to_send = FILE_NOT_FOUND;
                 
                 if (to_send < 0)
+                {
                     // Invio il risultato dell'operazione al client
+                    //printf("485 \n");
                     SERVER_OP(writen(request.client_descriptor, &to_send, sizeof(to_send)), sec_close_connection(request.client_descriptor));
+                }
                 break;
             case CLOSEFILE:;
                 to_send = 0;
@@ -517,6 +526,7 @@ void* worker(void* args)
                 }
 
                 // Invio la risposta
+                //printf("521 \n");
                 SERVER_OP(writen(request.client_descriptor, &to_send, sizeof(to_send)), sec_close_connection(request.client_descriptor));
                 break;
             case CLOSECONNECTION:;
@@ -537,6 +547,7 @@ void* worker(void* args)
                     perror("Fallita chiusura della connessione");
                 UNLOCK(&client_fds_lock);
                 
+                //printf("541 \n");
                 SERVER_OP(writen(request.client_descriptor, &to_send, sizeof(to_send)), sec_close_connection(request.client_descriptor));
                 break;
             default:;
@@ -547,7 +558,7 @@ void* worker(void* args)
                 break;
         }
 
-        log_info("Terminata gestione della richiesta.");
+        log_info("Terminata gestione della richiesta (%d)", to_send);
 
         // Resetto il valore di ritorno
         to_send = 0;
@@ -1148,7 +1159,8 @@ int check_apply_LRU(int n_files, int file_size, ClientRequest request)
 
     log_info("Esito LRU: %d", to_send);
     // Invio to_send al client
-    SERVER_OP(writen(request.client_descriptor, &to_send, sizeof(int)), sec_close_connection(request.client_descriptor));
+    //printf("1164 Desc: %d, to_send: %d\n", request.client_descriptor, to_send);
+    SERVER_OP(writen(request.client_descriptor, &to_send, sizeof(to_send)), sec_close_connection(request.client_descriptor));
 
     // E invio anche i file rimossi
     for (int i=0; i<to_send; i++)

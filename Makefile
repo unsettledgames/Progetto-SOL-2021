@@ -5,7 +5,7 @@ SHELL := /bin/bash
 
 # Opzioni di compilazione
 CC = gcc
-GENERIC_FLAGS = -Wall -pedantic -std=gnu99
+GENERIC_FLAGS = -Wall -pedantic -std=gnu99 -g
 THREAD_FLAGS = -pthread
 INCLUDES = -I./headers
 
