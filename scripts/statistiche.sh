@@ -88,6 +88,9 @@ if [ -d "Logs" ]; then
             echo "Bytes scritti in media:"
             echo "scale=2; ${written_bytes} / ${tot_write}" | bc -l
         fi
+        
+        echo "File rimasti nel server al termine dell'esecuzione:"
+        grep -e "\[LFTVR\]" tmp_log | cut -c 8-
 
         rm tmp_log
 

@@ -4,7 +4,8 @@
 int tid = 0;
 
 // Uscita dal programma
-volatile sig_atomic_t must_stop = 0;
+volatile sig_atomic_t must_stop = FALSE;
+volatile sig_atomic_t worker_stop = FALSE;
 
 // File di log con la sua lock
 FILE* log_file = NULL;
@@ -149,7 +150,7 @@ void* worker(void* args)
     // Timestamp
     time_t timestamp;
 
-    while (!must_stop)
+    while (!must_stop || !worker_stop)
     {
         // Return value
         int to_send = 0;        
@@ -585,7 +586,7 @@ void* dispatcher(void* args)
     // Read set, è locale e serve solo al dispatcher
     fd_set read_set;
 
-    while (!must_stop)
+    while (!must_stop || !worker_stop)
     {
         FD_ZERO(&read_set);
         // Salvo il numero massimo dei fd
@@ -968,6 +969,7 @@ void* sighandler(void* param)
 
         if (signal == SIGINT || signal == SIGQUIT)
         {
+            worker_stop = TRUE;
             // Creo le statistiche
             // Chiudo tutte le connessioni
             Node* curr = client_fds.head;
@@ -1027,8 +1029,6 @@ void* sighandler(void* param)
             }
 
             THREAD_JOIN(connession_handler_tid, NULL);
-            // Aspetto che il dispatcher finisca
-            THREAD_JOIN(dispatcher_tid, NULL);
 
             // Finché ho client
             LOCK(&client_fds_lock);
@@ -1040,6 +1040,10 @@ void* sighandler(void* param)
                 LOCK(&client_fds_lock);
             }
             UNLOCK(&client_fds_lock);
+
+            worker_stop = TRUE;
+            // Aspetto che il dispatcher finisca
+            THREAD_JOIN(dispatcher_tid, NULL);
 
             // Sveglio i worker per farli terminare
             for (int i=0; i<config.n_workers; i++)
@@ -1063,6 +1067,17 @@ void* sighandler(void* param)
             // Coda richieste
             list_clean(requests, NULL);            
         }
+
+        // Loggo i file ancora nella hashmap
+        for (int i=0; i<files.size; i++)
+        {
+            for (int j=0; j<files.lists[i].length; j++)
+            {
+                File* curr = (File*)list_get(files.lists[i], j);
+                log_info("[LFTVR] %s", curr->path);
+            }
+        }
+
         if (log_file != NULL)
             fflush(log_file);
         // Pulisco tutte le strutture dati

@@ -118,7 +118,7 @@ void execute_requests(ClientConfig config, List* requests)
                 if (directory == NULL)
                 {
                     fprintf(stderr, "Impossibile spedire file contenuti in una directory NULL\n");
-                    break;
+                    continue;
                 }
 
                 if (args[1] != NULL)
@@ -128,7 +128,7 @@ void execute_requests(ClientConfig config, List* requests)
                     if (errno != 0)
                     {
                         fprintf(stderr, "Errore nella conversione del secondo parametro di -w\n");
-                        break;
+                        continue;
                     }
                 }
 

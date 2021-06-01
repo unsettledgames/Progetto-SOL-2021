@@ -36,31 +36,41 @@
     gestire. In tal modo il server è in grado di differenziare le richieste da parte dei client.
 
     openFile:   il client invia una richiesta formattata opportunamente. In particolare, op_code viene 
-                impostato a OPENFILE. Il server risponde con un solo int, che esprime il successo
-                o meno dell'operazione.
+                impostato a OPENFILE. Il server risponde con un solo int, che rappresenta il numero di file
+                espulsi in seguito a capacity miss. La openFile invoca l'handle_expelled_files, ignorandoli.
 
-    closeFile:  il client invia una richiesta formattata opportunamente e riceve dal server un solo unsigned int
+    closeFile:  il client invia una richiesta formattata opportunamente e riceve dal server un solo int
                 che esprime il successo o meno dell'operazione.
 
     readFile:   la funzione formatta una richiesta in modo opportuno (op_code = READFILE) e aspetta 
                 una risposta dal server.
                 
-                Il server invia per prima la dimensione della risposta, readFile invia un bit di acknowledgement
-                e il server procede a inviare il contenuto effettivo del file.
-                
-                Se la dimensione della risposta è un valore negativo, si è verificato un errore.
+                Il server invia una ServerResponse contenente dati riguardo al file richiesto (path, contenuto,
+                dimensione del contenuto) e un codice di errore che può essere usato per gestire eventuali
+                errori.
 
     writeFile:  la funzione apre il file specificato dal client, occupandosi quindi di verificare la presenza
                 di eventuali errori e delegandone la gestione al client. Dopodiché, writeFile estrae il contenuto
                 dal file specificato e lo include in una ClientRequest che invia al server.
 
-                Il server risponde con un solo intero che rappresenta un codice di errore.
+                Il server invia un intero che rappresenta il numero di file espulsi in seguito a capacity
+                miss che la writeFile usa per invocare handle_expelled_files e gestire in modo opportuno i file
+                espulsi. Se il numero di file espulsi è minore di 0, si è verificato un errore.
 
-    appendToFile: la funzione formatta una richiesta includendo nel campo "content" i dati da appendere al file.
-                Il server risponde con un solo intero che rappresenta un codice di errore.
+    appendToFile: la funzione formatta una ClientRequest includendo in particolare nel campo "content" i dati 
+                da appendere al file.
+                Il server invia un intero che rappresenta il numero di file espulsi in seguito a capacity
+                miss che la appendToFile usa per invocare handle_expelled_files e gestire in modo opportuno i file
+                espulsi. Se il numero di file espulsi è minore di 0, si è verificato un errore.
+
+    readNFiles: la funzione invia una ClientRequest ponendo nel campo flags il numero di file da leggere. 
+                La funzione attende poi che il server invii il numero di file da leggere: se tale numero è minore
+                di 0, si è verificato un errore lato server. In caso di successo, si invoca la 
+                handle_expelled_files per gestire in modo opportuno i file letti.
 
 */
 
+// Operazioni possibili
 enum Operations
 {
     OPENFILE =          0, 
