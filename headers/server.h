@@ -11,6 +11,7 @@
 #include <pthread.h>
 #include <signal.h>
 
+// ZLIB: Copyright (C) 1995-2017 Jean-loup Gailly and Mark Adler
 #include "zlib/zlib.h"
 #include "nodes.h"
 #include "list.h"
@@ -218,4 +219,14 @@ int server_decompress(char* data, char* buffer, unsigned int data_size);
 */
 void sec_close_connection(int fd);
 
-void check_apply_LRU(int n_files, int file_size, ClientRequest request);
+/**
+    \brief: Controlla se deve essere applicato l'algoritmo di sostituzione e lo esegue, se necessario.
+            check_apply_LRU si occupa in modo autonomo di inviare al client il numero di file espulsi e 
+            i file stessi, gestendo in maniera modulare le lock files_mutex e allocated_space_mutex.
+            Eventuali errori vengono inoltrati al client sottoforma di scrittura su socket e ritornati
+            al server, che li può gestire se necessario.
+
+    \param file_size: La dimensione del file che si sta tentando di inserire.
+    \param request: La richiesta che ha causato la chiamata della funzione.
+*/
+int check_apply_LRU(int n_files, int file_size, ClientRequest request);

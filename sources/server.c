@@ -109,7 +109,7 @@ int main(int argc, char** argv)
         // Alloco spazio per i tids
         tids = my_malloc(sizeof(pthread_t) * config.n_workers);
 
-        // Faccio partire il thread master, che accetta le connessioni
+        // Faccio partire il connession_handler, che accetta le connessioni
         SYSCALL_EXIT("pthread_create", err, pthread_create(&connession_handler_tid, NULL, &connession_handler, NULL), 
         "Errore in pthread_create dell'handler delle connessioni", "");
         // Faccio partire il dispatcher, che riceve le richieste e le aggiunge in coda
@@ -214,43 +214,43 @@ void* worker(void* args)
                 {
                     int n_files = files.curr_size;
                     UNLOCK(&files_mutex);
-                    check_apply_LRU(n_files, 0, request);
+                    int err = check_apply_LRU(n_files, 0, request);
+                    
+                    if (err >= 0)
+                    {
+                        // Il file non esisteva, allora lo aggiungo
+                        // Preparo il file da aprire
+                        File* to_open = my_malloc(sizeof(File));
+                        // Chiave del file da aprire
+                        char* file_key = my_malloc(sizeof(char) * MAX_PATH_LENGTH);
 
-                    int err = to_send;
-                    if (err < 0)
-                        SERVER_OP(writen(request.client_descriptor, &to_send, sizeof(to_send)), break);
-                    // Il file non esisteva, allora lo aggiungo
-                    // Preparo il file da aprire
-                    File* to_open = my_malloc(sizeof(File));
-                    // Chiave del file da aprire
-                    char* file_key = my_malloc(sizeof(char) * MAX_PATH_LENGTH);
+                        // Imposto il percorso
+                        strncpy(to_open->path, request.path, MAX_PATH_LENGTH);
+                        strncpy(file_key, to_open->path, MAX_PATH_LENGTH);
 
-                    // Imposto il percorso
-                    strncpy(to_open->path, request.path, MAX_PATH_LENGTH);
-                    strncpy(file_key, to_open->path, MAX_PATH_LENGTH);
+                        // Inizializzo la lock
+                        SYSCALL_EXIT("pthread_mutex_init", err, pthread_mutex_init(&(to_open->lock), NULL),
+                        "Impossibile inizializzare la lock del file", "");
+                        // Imposto il descrittore del client
+                        to_open->client_descriptor = request.client_descriptor;
+                        // Segnalo che l'ultima operazione era una open
+                        to_open->last_op = OPENFILE;
+                        // Segnalo che il file è aperto
+                        to_open->is_open = TRUE;
+                        // Imposto il primo timestamp
+                        to_open->last_used = timestamp;
+                        // Il file non è stato modificato inizialmente
+                        to_open->modified = FALSE;
+                        // Il contenuto iniziale ha dimensione 0
+                        to_open->content_size = 0;
 
-                    // Inizializzo la lock
-                    SYSCALL_EXIT("pthread_mutex_init", err, pthread_mutex_init(&(to_open->lock), NULL),
-                    "Impossibile inizializzare la lock del file", "");
-                    // Imposto il descrittore del client
-                    to_open->client_descriptor = request.client_descriptor;
-                    // Segnalo che l'ultima operazione era una open
-                    to_open->last_op = OPENFILE;
-                    // Segnalo che il file è aperto
-                    to_open->is_open = TRUE;
-                    // Imposto il primo timestamp
-                    to_open->last_used = timestamp;
-                    // Il file non è stato modificato inizialmente
-                    to_open->modified = FALSE;
-                    // Il contenuto iniziale ha dimensione 0
-                    to_open->content_size = 0;
+                        // Infine aggiungo il file alla tabella
+                        hashmap_put(&files, to_open, file_key);
+                        UNLOCK(&files_mutex);
 
-                    // Infine aggiungo il file alla tabella
-                    hashmap_put(&files, to_open, file_key);
-                    UNLOCK(&files_mutex);
-
-                    log_info("File creato e aperto con successo");
-                    log_info("[OP] open");
+                        log_info("File creato e aperto con successo");
+                        log_info("[OP] open");
+                    }
                 }    
                 else
                 {
@@ -384,25 +384,26 @@ void* worker(void* args)
                             // Scrivo solo se ho spazio per farlo
                             if (to_send >= 0 && file_size < config.tot_space)
                             {
-                                check_apply_LRU(n_files, file_size, request);
+                                if (check_apply_LRU(n_files, file_size, request) >= 0)
+                                {
+                                    // Solo ora posso scrivere i dati inviati dal client
+                                    memcpy(to_write->content, request.content, file_size);
+                                    to_write->last_op = WRITEFILE;
+                                    to_write->last_used = timestamp;
+                                    to_write->content_size = file_size;
+                                    to_write->modified = TRUE;
 
-                                // Solo ora posso scrivere i dati inviati dal client
-                                memcpy(to_write->content, request.content, file_size);
-                                to_write->last_op = WRITEFILE;
-                                to_write->last_used = timestamp;
-                                to_write->content_size = file_size;
-                                to_write->modified = TRUE;
+                                    LOCK(&allocated_space_mutex);
+                                    log_info("[SIZE] %d", allocated_space);
+                                    UNLOCK(&allocated_space_mutex);
 
-                                LOCK(&allocated_space_mutex);
-                                log_info("[SIZE] %d", allocated_space);
-                                UNLOCK(&allocated_space_mutex);
+                                    LOCK(&files_mutex);
+                                    log_info("[NFILES] %d", files.curr_size);
+                                    UNLOCK(&files_mutex);
 
-                                LOCK(&files_mutex);
-                                log_info("[NFILES] %d", files.curr_size);
-                                UNLOCK(&files_mutex);
-
-                                log_info("Scrittura del file %s di dimensione %d", request.path, file_size);
-                                log_info("[WT] %ld", file_size);
+                                    log_info("Scrittura del file %s di dimensione %d", request.path, file_size);
+                                    log_info("[WT] %ld", file_size);
+                                }
                             }
                             else if (file_size > config.tot_space)
                                 to_send = FILE_TOO_BIG;
@@ -452,27 +453,28 @@ void* worker(void* args)
                     else
                     {
                         // Invoco il rimpiazzamento
-                        check_apply_LRU(n_files, file_size, request);
-         
-                        LOCK(&allocated_space_mutex);
-                        log_info("[SIZE] %d", allocated_space);
-                        UNLOCK(&allocated_space_mutex);
+                        if (check_apply_LRU(n_files, file_size, request) >= 0)
+                        {
+                            LOCK(&allocated_space_mutex);
+                            log_info("[SIZE] %d", allocated_space);
+                            UNLOCK(&allocated_space_mutex);
 
-                        LOCK(&files_mutex);
-                        log_info("[NFILES] %d", files.curr_size);
-                        UNLOCK(&files_mutex);
+                            LOCK(&files_mutex);
+                            log_info("[NFILES] %d", files.curr_size);
+                            UNLOCK(&files_mutex);
 
-                        // Adesso posso appendere
-                        file->last_used = timestamp;
-                        // Appendo a tot_buffer
-                        memcpy(tot_buffer + to_append_to_size - 1, request.content, request.content_size);
-                        // Comprimo
-                        file->content_size = server_compress(tot_buffer, file->content, request.content_size + to_append_to_size);
-                        file->modified = TRUE;
-                        free(files_to_send);
+                            // Adesso posso appendere
+                            file->last_used = timestamp;
+                            // Appendo a tot_buffer
+                            memcpy(tot_buffer + to_append_to_size - 1, request.content, request.content_size);
+                            // Comprimo
+                            file->content_size = server_compress(tot_buffer, file->content, request.content_size + to_append_to_size);
+                            file->modified = TRUE;
+                            free(files_to_send);
 
-                        log_info("Appendo il contenuto di dimensione %d al file %s", file_size, file->path);
-                        log_info("[WT] %d", file_size);
+                            log_info("Appendo il contenuto di dimensione %d al file %s", file_size, file->path);
+                            log_info("[WT] %d", file_size);
+                        }                        
                     }
                 }
                 else
@@ -1097,7 +1099,7 @@ void* sighandler(void* param)
     pthread_exit(NULL);
 }
 
-void check_apply_LRU(int n_files, int file_size, ClientRequest request)
+int check_apply_LRU(int n_files, int file_size, ClientRequest request)
 {
     int to_send = 0;
     // Aggiorno lo spazio allocato dai file
@@ -1169,6 +1171,8 @@ void check_apply_LRU(int n_files, int file_size, ClientRequest request)
     }
 
     free(files_to_send);
+
+    return to_send;
 }
 
 void clean_everything()
