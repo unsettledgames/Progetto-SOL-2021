@@ -5,8 +5,8 @@ SHELL := /bin/bash
 
 # Opzioni di compilazione
 CC = gcc
-GENERIC_FLAGS = -Wall -pedantic -std=gnu99 -pthread -g
-THREAD_FLAGS = -lpthread
+GENERIC_FLAGS = -Wall -pedantic -std=gnu99
+THREAD_FLAGS = -pthread
 INCLUDES = -I./headers
 
 # -------------------Cartelle utilizzate frequentemente---------------
@@ -37,7 +37,7 @@ all: client server
 
 # Compilazione del server
 server: $(server_deps)
-	$(CC) $(INCLUDES) $(GENERIC_FLAGS) sources/server.c sources/utility/utility.c -o server -Wl,-rpath,./libs -L ./libs -ldata-structures -lapi -lz
+	$(CC) $(INCLUDES) $(GENERIC_FLAGS) $(THREAD_FLAGS) sources/server.c sources/utility/utility.c -o server -Wl,-rpath,./libs -L ./libs -ldata-structures -lapi -lz
 # Compilazione del client
 client: $(client_deps)
 	$(CC) $(INCLUDES) $(GENERIC_FLAGS) sources/client.c sources/utility/utility.c -o client -Wl,-rpath,./libs -L ./libs -ldata-structures -lapi

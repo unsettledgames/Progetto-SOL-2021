@@ -12,6 +12,7 @@ sleep 2s
 ./client -f LSOfilestorage.sk -R -d AllRead -p
 ./client -h
 
+sleep 1s
+
 kill -s SIGHUP $pid
 wait $pid
-
