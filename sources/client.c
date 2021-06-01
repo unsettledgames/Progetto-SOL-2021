@@ -63,6 +63,20 @@ int main(int argc, char** argv)
 void execute_requests(ClientConfig config, List* requests)
 {
     int must_print = config.print_op_data;
+    /*
+    // Debug della creazione di un file non esistente su disco
+    int err = 0;
+    char* buffer = malloc(sizeof(char) * MAX_FILE_SIZE);
+    openFile("prova.txt", 1 << O_CREATE);
+    appendToFile("prova.txt", "Contenuto del file non esistente\n", strlen("Contenuto del file non esistente\n"), NULL);
+    readFile("prova.txt", &buffer, &err);
+    printf("Ricevuto: %s\n", buffer);
+
+    appendToFile("prova.txt", "Riappendo roba\n", strlen("Riappendo roba\n"), NULL);
+    readFile("prova.txt", &buffer, &err);
+    closeFile("prova.txt");
+    printf("Ricevuto: %s\n", buffer);
+    */
     // Debug della append
 /*
     int err = 0;

@@ -466,7 +466,7 @@ void* worker(void* args)
                             // Adesso posso appendere
                             file->last_used = timestamp;
                             // Appendo a tot_buffer
-                            memcpy(tot_buffer + to_append_to_size - 1, request.content, request.content_size);
+                            memcpy(tot_buffer + to_append_to_size + ((to_append_to_size == 0) ? 0 : - 1), request.content, request.content_size);
                             // Comprimo
                             file->content_size = server_compress(tot_buffer, file->content, request.content_size + to_append_to_size);
                             file->modified = TRUE;
@@ -1258,9 +1258,9 @@ int server_compress(char* data, char* buffer, int size)
     defstream.next_out = (Bytef *)b; // output char array
     
     // Invoco le funzioni di compressione
-    deflateInit(&defstream, Z_BEST_COMPRESSION);
-    deflate(&defstream, Z_FINISH);
-    deflateEnd(&defstream);
+    CALL_ZLIB(deflateInit(&defstream, Z_BEST_COMPRESSION));
+    CALL_ZLIB(deflate(&defstream, Z_FINISH));
+    CALL_ZLIB(deflateEnd(&defstream));
 
     // Copio i dati nel buffer di ritorno
     memcpy(buffer, b, defstream.total_out);
@@ -1290,9 +1290,9 @@ int server_decompress(char* data, char* buffer, unsigned int data_size)
     infstream.next_out = (Bytef *)c; 
      
     // Invoco le funzioni di decompressione
-    inflateInit(&infstream);
-    inflate(&infstream, Z_NO_FLUSH);
-    inflateEnd(&infstream);
+    CALL_ZLIB(inflateInit(&infstream));
+    CALL_ZLIB(inflate(&infstream, Z_NO_FLUSH));
+    CALL_ZLIB(inflateEnd(&infstream));
 
     // Copio nel buffer di ritorno
     memcpy(buffer, c, infstream.total_out);
