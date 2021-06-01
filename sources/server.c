@@ -153,8 +153,6 @@ void* worker(void* args)
     {
         // Return value
         int to_send = 0;        
-        // Numero di elementi da spedire al client
-        int n_expelled = 0;
         // File espulsi dal server da spedire al client
         File* files_to_send;
         // Dimensione del file corrente
@@ -190,6 +188,7 @@ void* worker(void* args)
         switch (request.op_code)
         {
             case OPENFILE:;
+                to_send = 0;
                 log_info("Tentativo di apertura del file %s", request.path);
                 // Verifico che il file non esista o non sia già aperto
                 LOCK(&files_mutex);
@@ -206,36 +205,15 @@ void* worker(void* args)
 
                     log_info("File aperto con successo.");
                     log_info("[OP] open");
+
+                    SERVER_OP(writen(request.client_descriptor, &to_send, sizeof(to_send)), break);
                 }
                 // Controllo che O_CREATE sia settato e che il file non sia già stato creato
                 else if ((request.flags >> O_CREATE) & 1 && !hashmap_has_key(files, request.path))
                 {
-                    LOCK(&allocated_space_mutex);
-                    while (files.curr_size > config.max_files)
-                    {
-                        log_info("Chiamato algoritmo di rimpiazzamento\n\t(Spazio: %d / %d)\n\t(N files: %d / %d)", 
-                            allocated_space, config.tot_space, files.curr_size, config.max_files);
-                        log_info("[LRU] called");
-                        // Calcolo il path del file da rimuovere
-                        char* to_remove = get_LRU(request.path);
-                        
-                        // Se la LRU ha ritornato qualcosa, allora rimuovo quel file
-                        if (to_remove != NULL)
-                        {
-                            log_info("Rimuovo il file %s", to_remove);
-                            // Salvo il file perché la remove dealloca i dati
-                            // Aggiorno lo spazio e rimuovo il file
-                            allocated_space -= ((File*)hashmap_get(files, to_remove))->content_size;                            
-                            if (hashmap_remove(&files, to_remove) != OK)
-                                perror("Impossibile rimuovere il file");
-
-                            free(to_remove);
-                        }
-                        // Altrimenti ho fallito e non posso aggiungere il file
-                        else
-                            to_send = LRU_FAILURE;
-                    }
-                    UNLOCK(&allocated_space_mutex);
+                    int n_files = files.curr_size;
+                    UNLOCK(&files_mutex);
+                    check_apply_LRU(n_files, 0, request);
 
                     int err = to_send;
                     if (err < 0)
@@ -277,9 +255,9 @@ void* worker(void* args)
                 {
                     to_send = INCONSISTENT_FLAGS;            
                     UNLOCK(&files_mutex);
+                    SERVER_OP(writen(request.client_descriptor, &to_send, sizeof(to_send)), break);
                 }
 
-                SERVER_OP(writen(request.client_descriptor, &to_send, sizeof(to_send)), sec_close_connection(request.client_descriptor));
                 break;
             case READFILE:;
                 log_info("Tentativo di apertura del file %s", request.path);
@@ -403,60 +381,31 @@ void* worker(void* args)
                         if (to_write->last_op == OPENFILE && to_write->client_descriptor == request.client_descriptor)
                         {
                             // Scrivo solo se ho spazio per farlo
-                            if (file_size < config.tot_space)
+                            if (to_send >= 0 && file_size < config.tot_space)
                             {
-                                // Aggiorno lo spazio allocato dai file
+                                check_apply_LRU(n_files, file_size, request);
+
+                                // Solo ora posso scrivere i dati inviati dal client
+                                memcpy(to_write->content, request.content, file_size);
+                                to_write->last_op = WRITEFILE;
+                                to_write->last_used = timestamp;
+                                to_write->content_size = file_size;
+                                to_write->modified = TRUE;
+
                                 LOCK(&allocated_space_mutex);
-                                allocated_space += file_size;
-
-                                // Se non posso tenere altri file in cache, ne rimuovo finché non ho 
-                                // spazio disponibile
-                                LOCK(&files_mutex);
-
-                                // Nel peggiore dei casi, i file da spedire indietro sono tutti (TODO: usare una lista)
-                                files_to_send = my_malloc(sizeof(File) * files.curr_size);
-
-                                // Rimpiazzo finché non ho abbastanza spazio o finché non ho tolto abbastanza files
-                                while ((allocated_space > config.tot_space && to_send >= 0) || (n_files > config.max_files && to_send >= 0))
-                                {
-                                    log_info("Chiamato algoritmo di rimpiazzamento\n\t(Spazio: %d / %d)\n\t(N files: %d / %d)", 
-                                        allocated_space, config.tot_space, n_files, config.max_files);
-                                    log_info("[LRU] called");
-                                    // Calcolo il path del file da rimuovere
-                                    char* to_remove = get_LRU(request.path);
-                                    
-                                    // Se la LRU ha ritornato qualcosa, allora rimuovo quel file
-                                    if (to_remove != NULL)
-                                    {
-                                        log_info("Rimuovo il file %s", to_remove);
-                                        // Salvo il file perché la remove dealloca i dati
-                                        File* LRUed = (File*)hashmap_get(files, to_remove);
-                                        memcpy(&(files_to_send[n_expelled]), LRUed, sizeof(*LRUed));
-
-                                        // Aggiorno lo spazio e rimuovo il file
-                                        allocated_space -= LRUed->content_size;
-                                        if (hashmap_remove(&files, to_remove) != OK)
-                                            perror("Impossibile rimuovere il file");
-                                        
-                                        to_send++;
-                                        n_files--;
-
-                                        free(to_remove);
-                                    }
-                                    // Altrimenti ho fallito e non posso aggiungere il file
-                                    else
-                                        to_send = LRU_FAILURE;
-                                }
-                                UNLOCK(&files_mutex);
+                                log_info("[SIZE] %d", allocated_space);
                                 UNLOCK(&allocated_space_mutex);
+
+                                LOCK(&files_mutex);
+                                log_info("[NFILES] %d", files.curr_size);
+                                UNLOCK(&files_mutex);
+
+                                log_info("Scrittura del file %s di dimensione %d", request.path, file_size);
+                                log_info("[WT] %ld", file_size);
                             }
-                            else
+                            else if (file_size > config.tot_space)
                                 to_send = FILE_TOO_BIG;
-                            
-                            LOCK(&files_mutex);
-                            if (files.curr_size > config.max_files)
-                                to_send = FILE_AMOUNT_LIMIT;
-                            UNLOCK(&files_mutex);
+                                
                         }
                         else
                             to_send = INVALID_LAST_OPERATION;
@@ -473,152 +422,67 @@ void* worker(void* args)
                     UNLOCK(&files_mutex);
                 }
 
-                log_info("Esito LRU: %d", to_send);
-                // Invio to_send al client
-                SERVER_OP(writen(request.client_descriptor, &to_send, sizeof(int)), sec_close_connection(request.client_descriptor));
-
-                // E invio anche i file rimossi
-                for (int i=0; i<to_send; i++)
-                {
-                    log_info("Invio il file rimosso %s", request.path);
-                    // Creo la risposta
-                    ServerResponse response;
-                    memset(&response, 0, sizeof(response));
-
-                    response.error_code = 0;
-                    memcpy(response.path, files_to_send[i].path, sizeof(files_to_send[i].path));
-                    memcpy(response.content, files_to_send[i].content, files_to_send[i].content_size);
-
-                    // Decomprimo i dati prima di spedirli
-                    response.content_size = server_decompress(response.content, response.content, files_to_send[i].content_size);
-
-                    // Invio la risposta
-                    SERVER_OP(writen(request.client_descriptor, &response, sizeof(response)), sec_close_connection(request.client_descriptor));
-                }
-
-                // Solo ora posso scrivere i dati inviati dal client
-                memcpy(to_write->content, request.content, file_size);
-                to_write->last_op = WRITEFILE;
-                to_write->last_used = timestamp;
-                to_write->content_size = file_size;
-                to_write->modified = TRUE;
-
-                LOCK(&allocated_space_mutex);
-                log_info("[SIZE] %d", allocated_space);
-                UNLOCK(&allocated_space_mutex);
-
-                LOCK(&files_mutex);
-                log_info("[NFILES] %d", files.curr_size);
-                UNLOCK(&files_mutex);
-
-                log_info("Scrittura del file %s di dimensione %d", request.path, file_size);
-                log_info("[WT] %ld", file_size);
-
-                // Dealloco
-                if (files_to_send != NULL)
-                    free(files_to_send);
+                // In caso di errore non ho inviato file, quindi invio almeno il codice di errore
+                if (to_send < 0)
+                    SERVER_OP(writen(request.client_descriptor, &to_send, sizeof(to_send)), sec_close_connection(request.client_descriptor));
 
                 break;
             case APPENDTOFILE:;
+                char tot_buffer[MAX_FILE_SIZE];
+                char to_append_buffer[MAX_FILE_SIZE];
+                int to_append_to_size;
+
                 log_info("Tentativo di append al file %s", request.path);
                 // Prendo il file a cui appendere i dati
                 LOCK(&files_mutex);
                 File* file = (File*)hashmap_get(files, request.path);
-                // Array dei file da espellere
-                files_to_send = my_malloc(sizeof(File) * files.curr_size);
+                // Ottengo il contenuto del file in formato decompresso perché dopo dovrò ricomprimere tutto
+                to_append_to_size = server_decompress(file->content, tot_buffer, file->content_size);
+                UNLOCK(&files_mutex);
                 // Dimensione del contenuto da appendere
-                file_size = server_compress(request.content, request.content, request.content_size);
+                file_size = server_compress(request.content, to_append_buffer, request.content_size);
 
                 if (file != NULL)
                 {
-                    LOCK(&allocated_space_mutex);
-                    // Aggiungo la lunghezza dei dati da concatenare al file
-                    allocated_space += file_size;
-
-                    // Se sto cercando di avere un file più grande dell'intero sistema, non ho speranze di aggiungerlo
+                    // Se sto cercando di avere un file più grande dell'intero sistema, non ho 
+                    // speranze di aggiungerlo
                     if ((file_size + file->content_size) > config.tot_space)
                         to_send = FILE_TOO_BIG;
                     else
                     {
-                        // Altrimenti espello file finché non ho abbastanza spazio
-                        while (allocated_space > config.tot_space && to_send >= 0)
-                        {
-                            log_info("[LRU] called");
-                            log_info("Invocato algoritmo di rimpiazzamento\n\t(Spazio: %d / %d)",
-                                allocated_space, config.tot_space);
-                            // Provo a ottnere il path del lru
-                            char* expelled_path = get_LRU(request.path);
+                        // Invoco il rimpiazzamento
+                        check_apply_LRU(n_files, file_size, request);
+         
+                        LOCK(&allocated_space_mutex);
+                        log_info("[SIZE] %d", allocated_space);
+                        UNLOCK(&allocated_space_mutex);
 
-                            if (expelled_path != NULL && strcmp(expelled_path, "") != 0)
-                            {
-                                log_info("Target del rimpiazzamento: %s", expelled_path);
-                                // Copio il file da eliminare così da poterlo spedire al client
-                                File* to_remove = hashmap_get(files, expelled_path);
-                                memcpy(&(files_to_send[to_send]), to_remove, sizeof(File));
+                        LOCK(&files_mutex);
+                        log_info("[NFILES] %d", files.curr_size);
+                        UNLOCK(&files_mutex);
 
-                                // Rimuovo il file dal sistema
-                                if (hashmap_remove(&files, expelled_path) != OK)
-                                    perror("Impossibile rimuovere il file");
-                                // Ho dello spazio in meno
-                                allocated_space -= files_to_send[to_send].content_size;
-                                // Ho un file da spedire al client in più
-                                to_send++;
-                            }
-                            else
-                                to_send = LRU_FAILURE;
-                            if (expelled_path != NULL)
-                                free(expelled_path);
-                        }
+                        // Adesso posso appendere
+                        file->last_used = timestamp;
+                        // Appendo a tot_buffer
+                        memcpy(tot_buffer + to_append_to_size - 1, request.content, request.content_size);
+                        // Comprimo
+                        file->content_size = server_compress(tot_buffer, file->content, request.content_size + to_append_to_size);
+                        file->modified = TRUE;
+                        free(files_to_send);
+
+                        log_info("Appendo il contenuto di dimensione %d al file %s", file_size, file->path);
+                        log_info("[WT] %d", file_size);
                     }
-                    UNLOCK(&allocated_space_mutex);
                 }
                 else
                     to_send = FILE_NOT_FOUND;
                 
-                UNLOCK(&files_mutex);
-
-                // Invio il risultato dell'operazione al client
-                SERVER_OP(writen(request.client_descriptor, &to_send, sizeof(to_send)), sec_close_connection(request.client_descriptor));
-                
-                // Se non ci sono stati errori, invio i file al client
-                if (to_send >= 0)
-                {
-                    for (int i=0; i<to_send; i++)
-                    {
-                        log_info("Invio il file rimosso %s", files_to_send[i].path);
-                        // Creo la risposta
-                        ServerResponse response;
-
-                        response.error_code = 0;
-                        memcpy(response.path, files_to_send[i].path, sizeof(response.path));
-                        memcpy(response.content, files_to_send[i].content, file_size);
-                        response.content_size = server_decompress(response.content, response.content, files_to_send[i].content_size);
-
-                        // Invio la risposta
-                        SERVER_OP(writen(request.client_descriptor, &response, sizeof(response)), sec_close_connection(request.client_descriptor));
-                    }
-                }
-
-                LOCK(&allocated_space_mutex);
-                log_info("[SIZE] %d", allocated_space);
-                UNLOCK(&allocated_space_mutex);
-
-                LOCK(&files_mutex);
-                log_info("[NFILES] %d", files.curr_size);
-                UNLOCK(&files_mutex);
-
-                // Adesso posso appendere
-                file->last_used = timestamp;
-                file->content_size += file_size;
-                file->modified = TRUE;
-                free(files_to_send);
-                strncat(file->content, request.content, file_size);
-
-                log_info("Appendo il contenuto di dimensione %d al file %s", file_size, file->path);
-                log_info("[WT] %d", file_size);
-
+                if (to_send < 0)
+                    // Invio il risultato dell'operazione al client
+                    SERVER_OP(writen(request.client_descriptor, &to_send, sizeof(to_send)), sec_close_connection(request.client_descriptor));
                 break;
-            case CLOSEFILE:
+            case CLOSEFILE:;
+                to_send = 0;
                 log_info("Tentativo di chiusura del file %s", request.path);
                 LOCK(&files_mutex);
                 
@@ -651,7 +515,7 @@ void* worker(void* args)
                 }
 
                 // Invio la risposta
-                SERVER_OP(writen(request.client_descriptor, &to_send, sizeof(int)), sec_close_connection(request.client_descriptor));
+                SERVER_OP(writen(request.client_descriptor, &to_send, sizeof(to_send)), sec_close_connection(request.client_descriptor));
                 break;
             case CLOSECONNECTION:;
                 log_info("Chiusura della connessione da parte del client %d", request.client_descriptor);
@@ -829,7 +693,6 @@ void* connession_handler(void* args)
             if (must_stop)
                 pthread_exit(NULL);
 
-            log_info("Client: %d, mine: %d", client_fd, socket_desc);
             log_info("Ricevuta richiesta di connessione dal client %d", client_fd);
             // Rialloco così i dati puntano a una locazione differente
             to_add = my_malloc(sizeof(int));
@@ -1164,6 +1027,8 @@ void* sighandler(void* param)
             }
 
             THREAD_JOIN(connession_handler_tid, NULL);
+            // Aspetto che il dispatcher finisca
+            THREAD_JOIN(dispatcher_tid, NULL);
 
             // Finché ho client
             LOCK(&client_fds_lock);
@@ -1181,6 +1046,11 @@ void* sighandler(void* param)
             {
                 SIGNAL(&queue_not_empty);
             }
+            // Aspetto che terminino
+            for (int i=0; i<config.n_workers; i++)
+            {
+                THREAD_JOIN(tids[i], NULL);
+            }
 
             // Chiudo tutte le connessioni
             Node* curr = client_fds.head;
@@ -1191,15 +1061,7 @@ void* sighandler(void* param)
             }
 
             // Coda richieste
-            list_clean(requests, NULL);
-
-            for (int i=0; i<config.n_workers; i++)
-            {
-                THREAD_JOIN(tids[i], NULL);
-            }
-
-            // Aspetto che il dispatcher finisca
-            THREAD_JOIN(dispatcher_tid, NULL);
+            list_clean(requests, NULL);            
         }
         if (log_file != NULL)
             fflush(log_file);
@@ -1213,13 +1075,86 @@ void* sighandler(void* param)
         free(tids);
         // Elimino il socket
         unlink(config.socket_name);
-        system("./scripts/stats.sh");
+        system("./scripts/statistiche.sh");
     }
     
     printf("Server terminato\n");
     pthread_exit(NULL);
 }
 
+void check_apply_LRU(int n_files, int file_size, ClientRequest request)
+{
+    int to_send = 0;
+    // Aggiorno lo spazio allocato dai file
+    LOCK(&allocated_space_mutex);
+    allocated_space += file_size;
+
+    // Se non posso tenere altri file in cache, ne rimuovo finché non ho 
+    // spazio disponibile
+    LOCK(&files_mutex);
+
+    // Nel peggiore dei casi, i file da spedire indietro sono tutti
+    File* files_to_send = my_malloc(sizeof(File) * files.curr_size);
+
+    // Rimpiazzo finché non ho abbastanza spazio o finché non ho tolto abbastanza files
+    while ((allocated_space > config.tot_space && to_send >= 0) || (n_files > config.max_files && to_send >= 0))
+    {
+        log_info("Chiamato algoritmo di rimpiazzamento\n\t(Spazio: %d / %d)\n\t(N files: %d / %d)", 
+            allocated_space, config.tot_space, n_files, config.max_files);
+        log_info("[LRU] called");
+        // Calcolo il path del file da rimuovere
+        char* to_remove = get_LRU(request.path);
+        
+        // Se la LRU ha ritornato qualcosa, allora rimuovo quel file
+        if (to_remove != NULL)
+        {
+            log_info("Rimuovo il file %s", to_remove);
+            // Salvo il file perché la remove dealloca i dati
+            File* LRUed = (File*)hashmap_get(files, to_remove);
+            memcpy(&(files_to_send[to_send]), LRUed, sizeof(*LRUed));
+
+            // Aggiorno lo spazio e rimuovo il file
+            allocated_space -= LRUed->content_size;
+            if (hashmap_remove(&files, to_remove) != OK)
+                perror("Impossibile rimuovere il file");
+            
+            to_send++;
+            n_files--;
+
+            free(to_remove);
+        }
+        // Altrimenti ho fallito e non posso aggiungere il file
+        else
+            to_send = LRU_FAILURE;
+    }
+    UNLOCK(&files_mutex);
+    UNLOCK(&allocated_space_mutex);
+
+    log_info("Esito LRU: %d", to_send);
+    // Invio to_send al client
+    SERVER_OP(writen(request.client_descriptor, &to_send, sizeof(int)), sec_close_connection(request.client_descriptor));
+
+    // E invio anche i file rimossi
+    for (int i=0; i<to_send; i++)
+    {
+        log_info("Invio il file rimosso %s", request.path);
+        // Creo la risposta
+        ServerResponse response;
+        memset(&response, 0, sizeof(response));
+
+        response.error_code = 0;
+        memcpy(response.path, files_to_send[i].path, sizeof(files_to_send[i].path));
+        memcpy(response.content, files_to_send[i].content, files_to_send[i].content_size);
+
+        // Decomprimo i dati prima di spedirli
+        response.content_size = server_decompress(response.content, response.content, files_to_send[i].content_size);
+
+        // Invio la risposta
+        SERVER_OP(writen(request.client_descriptor, &response, sizeof(response)), sec_close_connection(request.client_descriptor));
+    }
+
+    free(files_to_send);
+}
 
 void clean_everything()
 {

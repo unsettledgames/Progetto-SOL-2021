@@ -171,12 +171,13 @@ int openFile(const char* pathname, int flags)
     to_send.flags = flags;
     to_send.op_code = OPENFILE;
 
-    printf("Invio richiesta\n");
-    
     SYSCALL_RETURN("writen", n_written, writen(socket_fd, &to_send, sizeof(to_send)), 
         "Impossibile inviare la richiesta di apertura", "");
     SYSCALL_RETURN("readn", n_read, readn(socket_fd, &reply, sizeof(reply)), 
         "Impossibile ricevere l'esito della richiesta di apertura", "");
+
+    if (reply > 0)
+        handle_expelled_files(reply, NULL);
     return reply;
 }
 
@@ -255,7 +256,7 @@ int readFile(const char* pathname, void** buf, size_t* size)
     ServerResponse to_receive;
     // Path del file
     char path[MAX_PATH_LENGTH];
-    int n_read, n_written;
+    int n_written;
 
     errno = 0;
 

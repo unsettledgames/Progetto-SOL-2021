@@ -2,7 +2,7 @@ echo "Esecuzione del test 3"
 echo -e "8\n32000000\n100\nLSOfilestorage.sk\nLogs" > config.txt
 
 current_date=$(date +%s)
-stop_date=$(echo "$current_date + 3" | bc)
+stop_date=$(echo "$current_date + 10" | bc)
 
 pids=()
 # Creo una subshell
@@ -19,11 +19,11 @@ folder_index=1
 while [ $(date +%s) -lt $stop_date ]; do
     for i in {1..10}; do
         if [ ! -z "$pids[$i]" ]; then
-            ./client -f LSOfilestorage.sk -W TestDir/BigTest$folder_index/lorem$file_index.txt -p -D ToWriteIn \
-            -W TestDir/BigTest$folder_index/lorem$(($file_index + 1)).txt -p -D ToWriteIn \
-            -W TestDir/BigTest$folder_index/lorem$(($file_index + 2)).txt -p -D ToWriteIn \
-            -W TestDir/BigTest$folder_index/lorem$(($file_index + 3)).txt -p -D ToWriteIn \
-            -W TestDir/BigTest$folder_index/lorem$(($file_index + 4)).txt -p -D ToWriteIn
+            ./client -f LSOfilestorage.sk -W TestDir/BigTest$folder_index/lorem$file_index.txt -D ToWriteIn -t 500\
+            -W TestDir/BigTest$folder_index/lorem$(($file_index + 1)).txt\
+            -W TestDir/BigTest$folder_index/lorem$(($file_index + 2)).txt\
+            -W TestDir/BigTest$folder_index/lorem$(($file_index + 3)).txt\
+            -W TestDir/BigTest$folder_index/lorem$(($file_index + 4)).txt; &
             pids=( "${pids[@]:0:$i}" $! "${pids[@]:$i}" )
 
             file_index=$(($file_index + 5))

@@ -217,3 +217,5 @@ int server_decompress(char* data, char* buffer, unsigned int data_size);
 
 */
 void sec_close_connection(int fd);
+
+void check_apply_LRU(int n_files, int file_size, ClientRequest request);

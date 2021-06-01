@@ -65,16 +65,23 @@ void execute_requests(ClientConfig config, List* requests)
     int must_print = config.print_op_data;
     // Debug della append
 /*
-    openFile("/mnt/c/Users/nicol/OneDrive/Desktop/Git projects/Progetto-SOL-2021/TestDir/file1.txt", 0);
+    int err = 0;
+    char* buffer = malloc(sizeof(char) * MAX_FILE_SIZE);
+    openFile("/mnt/c/Users/nicol/OneDrive/Desktop/Git projects/Progetto-SOL-2021/TestDir/file2.txt", 1 << O_CREATE);
+    writeFile("/mnt/c/Users/nicol/OneDrive/Desktop/Git projects/Progetto-SOL-2021/TestDir/file2.txt", NULL);
+    closeFile("/mnt/c/Users/nicol/OneDrive/Desktop/Git projects/Progetto-SOL-2021/TestDir/file2.txt");
+
+    openFile("/mnt/c/Users/nicol/OneDrive/Desktop/Git projects/Progetto-SOL-2021/TestDir/file1.txt", 1 << O_CREATE);
     writeFile("/mnt/c/Users/nicol/OneDrive/Desktop/Git projects/Progetto-SOL-2021/TestDir/file1.txt", NULL);
     appendToFile("/mnt/c/Users/nicol/OneDrive/Desktop/Git projects/Progetto-SOL-2021/TestDir/file1.txt", "\nContenuto da appendere al file1\n", sizeof("\nContenuto da appendere al file1\n"), NULL);
+    readFile("/mnt/c/Users/nicol/OneDrive/Desktop/Git projects/Progetto-SOL-2021/TestDir/file1.txt", &buffer, &err);
+    printf("Buff: %s\n", buffer);
     closeFile("/mnt/c/Users/nicol/OneDrive/Desktop/Git projects/Progetto-SOL-2021/TestDir/file1.txt");
+    printf("Chiuso\n");
 */
-
     // Debug della open con O_CREATE
 
     /*
-    printf("Valore di O_CREAT: %d\n", O_CREAT);
     char* buff = my_malloc(sizeof(char) * MAX_FILE_SIZE);
     char testo[] = "Testo di esempio per il file di prova aperto con O_CREATE";
     char path[] = "Prova.txt";
@@ -174,7 +181,7 @@ void execute_requests(ClientConfig config, List* requests)
                     {
                         if (must_print)
                             printf("chiusura fallita (%d)\n", err3);
-                        fprintf(stderr, "Impossibile chiudere il file (errore %d)\n", errno);
+                        fprintf(stderr, "Impossibile chiudere il file (errore %d)\n", err3);
                         i++;
                         continue;
                     }
