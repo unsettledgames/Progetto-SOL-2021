@@ -42,7 +42,7 @@ int max_fd = -1;
 pthread_mutex_t max_fd_lock = PTHREAD_MUTEX_INITIALIZER;
 
 // Handlers
-pthread_t connession_handler_tid;
+pthread_t connection_handler_tid;
 pthread_t dispatcher_tid;
 pthread_t sighandler_tid;
 
@@ -94,7 +94,7 @@ int main(int argc, char** argv)
     if (errno == 0)
     {
         // Tid del thread che gestisce le connessioni
-        connession_handler_tid = -1;
+        connection_handler_tid = -1;
         // Tid del thread che smista le richieste
         dispatcher_tid = -1;
 
@@ -109,8 +109,8 @@ int main(int argc, char** argv)
         // Alloco spazio per i tids
         tids = my_malloc(sizeof(pthread_t) * config.n_workers);
 
-        // Faccio partire il connession_handler, che accetta le connessioni
-        SYSCALL_EXIT("pthread_create", err, pthread_create(&connession_handler_tid, NULL, &connession_handler, NULL), 
+        // Faccio partire il connection_handler, che accetta le connessioni
+        SYSCALL_EXIT("pthread_create", err, pthread_create(&connection_handler_tid, NULL, &connection_handler, NULL), 
         "Errore in pthread_create dell'handler delle connessioni", "");
         // Faccio partire il dispatcher, che riceve le richieste e le aggiunge in coda
         SYSCALL_EXIT("pthread_create", err, pthread_create(&dispatcher_tid, NULL, &dispatcher, NULL), 
@@ -676,7 +676,7 @@ void* dispatcher(void* args)
 }
 
 
-void* connession_handler(void* args)
+void* connection_handler(void* args)
 {
     log_info("Inizializzazione dell'handler delle connessioni");
     // Informazioni del client
@@ -1001,7 +1001,7 @@ void* sighandler(void* param)
             }
 
             // Aspetto che l'handler finisca
-            THREAD_JOIN(connession_handler_tid, NULL);
+            THREAD_JOIN(connection_handler_tid, NULL);
             // Risveglio tutti i worker
             pthread_cond_broadcast(&queue_not_empty);
 
@@ -1030,7 +1030,7 @@ void* sighandler(void* param)
                 pthread_exit(NULL);
             }
 
-            THREAD_JOIN(connession_handler_tid, NULL);
+            THREAD_JOIN(connection_handler_tid, NULL);
 
             // Finché ho client
             LOCK(&client_fds_lock);

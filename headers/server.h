@@ -94,16 +94,16 @@ typedef struct serverconfig
 ServerConfig config_server(const char* file_name);
 
 /**
-    \brief: Il connession handler si occupa di accettare le richieste di connessione da parte dei client.
+    \brief: Il connection handler si occupa di accettare le richieste di connessione da parte dei client.
             Questo thread resta perennamente in ascolto di nuove connessioni, le accetta e modifica il read set
             in maniera coerente.
 
             Dal momento che la accept è bloccante e, per gli scopi di questo progetto, si è preferito utilizzare
-            un socket blocante, affinché il connession handler termini è necessario spedire una falsa richiesta
+            un socket blocante, affinché il connection handler termini è necessario spedire una falsa richiesta
             di connessione dopo aver impostato la variabile must_stop a true.
 
 */
-void* connession_handler(void* args);
+void* connection_handler(void* args);
 
 /**
     \brief: Thread dispatcher. Tramite l'uso della funzione select invocata sul set di lettura, legge le 
