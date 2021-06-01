@@ -246,7 +246,6 @@ void* worker(void* args)
 
                         // Infine aggiungo il file alla tabella
                         hashmap_put(&files, to_open, file_key);
-                        UNLOCK(&files_mutex);
 
                         log_info("File creato e aperto con successo");
                         log_info("[OP] open");
