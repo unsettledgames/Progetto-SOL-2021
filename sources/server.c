@@ -692,7 +692,7 @@ void* connection_handler(void* args)
     // Informazioni del client
     struct sockaddr client_info;
     socklen_t client_addr_length = sizeof(client_info);
-    // Dati dei nodi delle lsite
+    // Dati dei nodi delle liste
     int client_fd;
     int* to_add;
     char* key;

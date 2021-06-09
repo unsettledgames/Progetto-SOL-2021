@@ -114,7 +114,7 @@ int openConnection(const char* sockname, int msec, const struct timespec abstime
     while ((err = connect(socket_fd, (struct sockaddr*) &address, sizeof(address))) != 0 && 
         abstime.tv_sec > curr_time.tv_sec)
     {
-        sleep(msec / 1000);
+        usleep(msec * 1000);
         err = 0;
         SYSCALL_RETURN("clock_gettime", err, clock_gettime(CLOCK_REALTIME, &curr_time), "Impossibile ottenere il tempo corrente.\n", "");
     }
