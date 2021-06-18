@@ -2,7 +2,7 @@
 
 Difetti del progetto:
 
-- Dimensione minima della richiesta di 90KB, si può migliorare allocando dinamicamente il buffer (va anche deallocato però)
+- Dimensione minima della richiesta di 900KB, si può migliorare allocando dinamicamente il buffer (va anche deallocato però)
 - server.c:711, alloco un intero dinamicamente quando basterebbe castarlo a void*
 - server.c:635, per com'è fatta la list_get ho un while dentro il for totalmente inutile. Risolvibile o con iteratori sulla lista oppure facendo un while direttamente sulla lista (togliendo il livello di astrazione della get)
 - Divisione tra connection_handler e dispatcher, non una critica vera e propria, quanto un appunto riguardo al fatto che non c'è un vantaggio concreto nel separarle, a parte la leggibilità e la debuggabilità del progetto
